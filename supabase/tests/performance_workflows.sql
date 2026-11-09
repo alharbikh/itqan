@@ -29,8 +29,9 @@ begin
    {"code":"local-criterion-b","title_ar":"المعيار الثاني","weight":30}
   ]}]}'::jsonb);
  f:=public.itqan_admin_approve_framework(b,'Reviewed in test');
- if not exists(select 1 from public.evaluation_frameworks where id=f and status='draft') then
-  raise exception 'Framework did not remain draft after approval';end if;
+ if not exists(select 1 from public.framework_import_batches
+  where id=b and framework_id=f and status='approved') then
+  raise exception 'Framework approval was not recorded as an unpublished draft';end if;
  perform public.itqan_admin_publish_framework(b);
  if not exists(select 1 from public.evaluation_frameworks where id=f and status='active') then
   raise exception 'Framework was not published';end if;
