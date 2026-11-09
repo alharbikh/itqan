@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const state = { mode: 'expanded', section: 'overview', schools: [], users: [], memberships: [], permissions: [], audit: [], editing: null };
+const state = { mode: 'expanded', section: 'overview', schools: [], users: [], memberships: [], permissions: [], siteAdmins: [], audit: [], editing: null };
 const names = {overview:'لوحة المعلومات',schools:'المدارس',users:'المستخدمون',memberships:'عضويات المدارس',permissions:'الأدوار والصلاحيات',audit:'سجل العمليات',resources:'أدوات مدير الموقع',settings:'إعدادات المنصة'};
 const mobile = matchMedia('(max-width:760px)');
 function notice(message, type='info') {
@@ -231,6 +231,42 @@ function populateMemberships(){
     action.append(edit);tr.append(action);tbody.append(tr);
   }
 }
+
+function populateSiteAdmins(){
+  const select=$('site-role-user');
+  const selected=select.value;
+  select.replaceChildren(new Option('اختر حسابًا',''));
+  for(const user of state.users){
+    select.add(new Option(user.full_name||user.id,user.id));
+  }
+  select.value=[...select.options].some(option=>option.value===selected)?selected:'';
+  const list=$('site-admins-list');
+  list.replaceChildren();
+  if(!state.siteAdmins.length){
+    const p=document.createElement('p');p.textContent='لم تظهر بيانات مديري الموقع.';list.append(p);return;
+  }
+  for(const record of state.siteAdmins){
+    const user=state.users.find(x=>x.id===record.user_id);
+    const item=document.createElement('div');item.className='admin-mini-item';
+    const name=document.createElement('b');name.textContent=user?.full_name||record.user_id;
+    const label=document.createElement('small');label.textContent='مدير الموقع';
+    item.append(name,label);list.append(item);
+  }
+}
+async function saveSiteRole(event){
+  event.preventDefault();
+  const user_id=$('site-role-user').value;
+  const enabled=$('site-role-enabled').value==='true';
+  const user=state.users.find(x=>x.id===user_id);
+  if(!user){notice('اختر حسابًا صحيحًا.','error');return;}
+  if(enabled){
+    const typed=window.prompt('للتأكيد على منح صلاحية مدير الموقع الكاملة، اكتب: مدير الموقع');
+    if(typed!=='مدير الموقع')return;
+  }
+  await adminAction('user.role',{user_id,enabled},
+    (enabled?'منح صلاحية مدير الموقع الكاملة إلى ':'سحب صلاحية مدير الموقع من ')+
+    '«'+(user.full_name||user.id)+'»؟');
+}
 function populateRoles(){
   const tbody=$('role-matrix-body');tbody.replaceChildren();
   for(const item of state.permissions){
@@ -247,7 +283,8 @@ async function loadAudit(){
     const tbody=$('audit-body');tbody.replaceChildren();
     if(!state.audit.length){emptyRow(tbody,4,'لا توجد عمليات مسجلة بعد.');return;}
     const labels={'school.create':'إنشاء مدرسة','school.update':'تعديل مدرسة','school.delete':'حذف مدرسة','school.status':'تعديل حالة مدرسة',
-      'membership.upsert':'تحديث عضوية','user.status':'تعديل حالة حساب'};
+      'membership.upsert':'تحديث عضوية','user.status':'تعديل حالة حساب',
+      'user.role.grant':'منح مدير الموقع','user.role.revoke':'سحب مدير الموقع'};
     for(const item of state.audit){
       const tr=document.createElement('tr');
       const actor=state.users.find(x=>x.id===item.actor_user_id);
@@ -275,16 +312,17 @@ async function saveMembership(event){
 
 async function refresh() {
   try {
-    const [schools,users,memberships,roles]=await Promise.all([
+    const [schools,users,memberships,roles,siteAdmins]=await Promise.all([
       api('/api/admin/schools'),api('/api/admin/users'),
-      api('/api/admin/memberships'),api('/api/admin/roles'),
+      api('/api/admin/memberships'),api('/api/admin/roles'),api('/api/admin/site-admins'),
     ]);
     state.schools=Array.isArray(schools.schools)?schools.schools:[];
     state.users=Array.isArray(users.users)?users.users:[];
     state.memberships=Array.isArray(memberships.memberships)?memberships.memberships:[];
     state.permissions=Array.isArray(roles.permissions)?roles.permissions:[];
+    state.siteAdmins=Array.isArray(siteAdmins.site_admins)?siteAdmins.site_admins:[];
     populateSchools();populateUsers();populateOverview();
-    fillMembershipOptions();populateMemberships();populateRoles();
+    fillMembershipOptions();populateMemberships();populateRoles();populateSiteAdmins();
   } catch {
     $('stat-connection').textContent='تعذر الاتصال';
     notice('تعذر تحميل بيانات الإدارة من Supabase. تحقق من الجلسة أو الصلاحيات.','error');
@@ -353,6 +391,7 @@ async function start() {
   $('cancel-school').addEventListener('click',()=>$('school-dialog').close());
   $('school-form').addEventListener('submit',saveSchool);
   $('membership-form').addEventListener('submit',saveMembership);
+  $('site-role-form').addEventListener('submit',saveSiteRole);
   $('refresh-audit').addEventListener('click',loadAudit);
   $('membership-role').addEventListener('change',()=>{
     if($('membership-role').value==='school_principal')$('membership-job').value='principal';
