@@ -2,8 +2,8 @@
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const state = { mode: 'expanded', section: 'overview', schools: [], users: [], editing: null };
-const names = {overview:'لوحة المعلومات',schools:'المدارس',users:'المستخدمون',permissions:'الأدوار والصلاحيات',settings:'إعدادات المنصة'};
+const state = { mode: 'expanded', section: 'overview', schools: [], users: [], memberships: [], permissions: [], audit: [], editing: null };
+const names = {overview:'لوحة المعلومات',schools:'المدارس',users:'المستخدمون',memberships:'عضويات المدارس',permissions:'الأدوار والصلاحيات',audit:'سجل العمليات',resources:'أدوات مدير الموقع',settings:'إعدادات المنصة'};
 const mobile = matchMedia('(max-width:760px)');
 function notice(message, type='info') {
   const box = $('message');
@@ -102,13 +102,24 @@ function populateSchools() {
     btn.setAttribute('aria-label','تعديل بيانات '+school.name);
     btn.addEventListener('click',()=>openSchool(school));
     action.append(btn);
+    const del=document.createElement('button');
+    del.type='button';del.className='button admin-danger';del.textContent='حذف';
+    del.setAttribute('aria-label','حذف المدرسة '+school.name);
+    del.addEventListener('click',()=>deleteSchool(school));
+    action.append(del);
+    const toggle=document.createElement('button');
+    toggle.type='button';toggle.className='button';
+    toggle.textContent=school.status==='active'?'تعطيل':'تفعيل';
+    toggle.addEventListener('click',()=>changeSchoolStatus(school));
+    action.append(toggle);
+    action.className='admin-row-actions';
     tr.append(action);
     tbody.append(tr);
   }
 }
 function populateUsers() {
   const tbody=$('users-body');
-  if (!state.users.length) { emptyRow(tbody,3,'لا توجد حسابات متاحة للعرض.');return; }
+  if (!state.users.length) { emptyRow(tbody,4,'لا توجد حسابات متاحة للعرض.');return; }
   tbody.replaceChildren();
   for (const user of state.users) {
     const tr=document.createElement('tr');
@@ -119,6 +130,11 @@ function populateUsers() {
       try { date=new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium'}).format(new Date(user.created_at)); } catch {}
     }
     tr.append(cell(date));
+    const actions=document.createElement('td');actions.className='admin-row-actions';
+    const toggle=document.createElement('button');toggle.type='button';toggle.className='button';
+    toggle.textContent=user.status==='active'?'إيقاف':'تفعيل';
+    toggle.addEventListener('click',()=>changeUserStatus(user));
+    actions.append(toggle);tr.append(actions);
     tbody.append(tr);
   }
 }
@@ -140,14 +156,135 @@ function populateOverview() {
     item.append(name,meta);list.append(item);
   }
 }
+
+const roleTitles={site_admin:'مدير الموقع',school_principal:'مدير المدرسة',employee:'موظف'};
+const jobTitles={principal:'مدير',teacher:'معلم',vice_principal:'وكيل',counselor:'موجه طلابي',staff:'إداري'};
+function displayTime(value){
+  try{return new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value));}
+  catch{return '—';}
+}
+async function adminAction(action, values, question){
+  if(!window.confirm(question))return false;
+  try{
+    await api('/api/admin/actions','POST',{action,...values});
+    await refresh();
+    await loadAudit();
+    notice('تم تنفيذ العملية وتسجيلها في سجل التدقيق.','success');
+    return true;
+  }catch(error){
+    notice(error.message||'تعذر تنفيذ الإجراء','error');
+    return false;
+  }
+}
+function deleteSchool(school){
+  return adminAction('school.delete',{school_id:school.id},
+    'حذف المدرسة «'+school.name+'» نهائيًا؟ لن يسمح النظام بالحذف إذا وجدت سجلات أو عضويات مرتبطة. لا يمكن التراجع.');
+}
+function changeSchoolStatus(school){
+  const status=school.status==='active'?'inactive':'active';
+  return adminAction('school.status',{school_id:school.id,status},
+    (status==='inactive'?'تعطيل':'تفعيل')+' المدرسة «'+school.name+'»؟');
+}
+function changeUserStatus(user){
+  const status=user.status==='active'?'inactive':'active';
+  return adminAction('user.status',{user_id:user.id,status},
+    (status==='inactive'?'إيقاف':'تفعيل')+' حساب «'+(user.full_name||user.id)+'»؟');
+}
+function fillMembershipOptions(){
+  const schoolSelect=$('membership-school'),userSelect=$('membership-user');
+  const selectedSchool=schoolSelect.value, selectedUser=userSelect.value;
+  schoolSelect.replaceChildren(new Option('اختر المدرسة',''));
+  userSelect.replaceChildren(new Option('اختر حسابًا مسجلًا',''));
+  for(const school of state.schools.filter(x=>x.status==='active')){
+    schoolSelect.add(new Option(school.name,school.id));
+  }
+  for(const user of state.users.filter(x=>x.status==='active')){
+    userSelect.add(new Option(user.full_name||user.id,user.id));
+  }
+  schoolSelect.value=[...schoolSelect.options].some(x=>x.value===selectedSchool)?selectedSchool:'';
+  userSelect.value=[...userSelect.options].some(x=>x.value===selectedUser)?selectedUser:'';
+}
+function populateMemberships(){
+  const tbody=$('memberships-body');
+  tbody.replaceChildren();
+  if(!state.memberships.length){emptyRow(tbody,6,'لا توجد عضويات مدارس مسجلة.');return;}
+  for(const membership of state.memberships){
+    const school=state.schools.find(x=>x.id===membership.school_id);
+    const user=state.users.find(x=>x.id===membership.user_id);
+    const tr=document.createElement('tr');
+    tr.append(cell(school?.name||membership.school_id),cell(user?.full_name||membership.user_id),
+      cell(roleTitles[membership.access_role]||membership.access_role),
+      cell(jobTitles[membership.job_role]||membership.job_role));
+    const statusCell=document.createElement('td');
+    statusCell.append(status(membership.status));tr.append(statusCell);
+    const action=document.createElement('td');
+    const edit=document.createElement('button');edit.type='button';edit.className='button';
+    edit.textContent='تعديل';edit.addEventListener('click',()=>{
+      go('memberships');
+      $('membership-school').value=membership.school_id;
+      $('membership-user').value=membership.user_id;
+      $('membership-role').value=membership.access_role;
+      $('membership-job').value=membership.job_role;
+      $('membership-status').value=membership.status;
+      $('membership-form').scrollIntoView({behavior:'smooth',block:'start'});
+    });
+    action.append(edit);tr.append(action);tbody.append(tr);
+  }
+}
+function populateRoles(){
+  const tbody=$('role-matrix-body');tbody.replaceChildren();
+  for(const item of state.permissions){
+    const tr=document.createElement('tr');
+    tr.append(cell(roleTitles[item.role_code]||item.role_code),cell(item.permission_code));
+    tbody.append(tr);
+  }
+  if(!state.permissions.length)emptyRow(tbody,2,'لا توجد صلاحيات ظاهرة.');
+}
+async function loadAudit(){
+  try{
+    const result=await api('/api/admin/audit');
+    state.audit=Array.isArray(result.audit)?result.audit:[];
+    const tbody=$('audit-body');tbody.replaceChildren();
+    if(!state.audit.length){emptyRow(tbody,4,'لا توجد عمليات مسجلة بعد.');return;}
+    const labels={'school.delete':'حذف مدرسة','school.status':'تعديل حالة مدرسة',
+      'membership.upsert':'تحديث عضوية','user.status':'تعديل حالة حساب'};
+    for(const item of state.audit){
+      const tr=document.createElement('tr');
+      const actor=state.users.find(x=>x.id===item.actor_user_id);
+      tr.append(cell(labels[item.operation]||item.operation),cell(item.target_type+' · '+item.target_id),
+        cell(actor?.full_name||item.actor_user_id),cell(displayTime(item.created_at)));
+      tbody.append(tr);
+    }
+  }catch{notice('تعذر تحميل سجل التدقيق.','error');}
+}
+async function saveMembership(event){
+  event.preventDefault();
+  const access_role=$('membership-role').value;
+  const job_role=$('membership-job').value;
+  const school_id=$('membership-school').value;
+  const user_id=$('membership-user').value;
+  const membershipStatus=$('membership-status').value;
+  if(access_role==='school_principal'&&job_role!=='principal'){
+    notice('يجب اختيار عمل «مدير» عند منح صلاحية مدير المدرسة.','error');return;
+  }
+  const school=state.schools.find(x=>x.id===school_id);
+  const user=state.users.find(x=>x.id===user_id);
+  await adminAction('membership.upsert',{school_id,user_id,access_role,job_role,status:membershipStatus},
+    'اعتماد عضوية «'+(user?.full_name||user_id)+'» في «'+(school?.name||school_id)+'» بصلاحية '+(roleTitles[access_role]||access_role)+'؟');
+}
+
 async function refresh() {
   try {
-    const [schools,users]=await Promise.all([
+    const [schools,users,memberships,roles]=await Promise.all([
       api('/api/admin/schools'),api('/api/admin/users'),
+      api('/api/admin/memberships'),api('/api/admin/roles'),
     ]);
     state.schools=Array.isArray(schools.schools)?schools.schools:[];
     state.users=Array.isArray(users.users)?users.users:[];
+    state.memberships=Array.isArray(memberships.memberships)?memberships.memberships:[];
+    state.permissions=Array.isArray(roles.permissions)?roles.permissions:[];
     populateSchools();populateUsers();populateOverview();
+    fillMembershipOptions();populateMemberships();populateRoles();
   } catch {
     $('stat-connection').textContent='تعذر الاتصال';
     notice('تعذر تحميل بيانات الإدارة من Supabase. تحقق من الجلسة أو الصلاحيات.','error');
@@ -215,6 +352,11 @@ async function start() {
   $('close-school').addEventListener('click',()=>$('school-dialog').close());
   $('cancel-school').addEventListener('click',()=>$('school-dialog').close());
   $('school-form').addEventListener('submit',saveSchool);
+  $('membership-form').addEventListener('submit',saveMembership);
+  $('refresh-audit').addEventListener('click',loadAudit);
+  $('membership-role').addEventListener('change',()=>{
+    if($('membership-role').value==='school_principal')$('membership-job').value='principal';
+  });
   $('logout').addEventListener('click',async()=>{
     try {await api('/api/logout','POST',{});} finally {location.replace('/login.html');}
   });
@@ -224,6 +366,7 @@ async function start() {
     if (user.role!=='site_admin') {notice('لا تملك صلاحية مدير الموقع.','error');return;}
     $('top-user-name').textContent=user.name||'مدير الموقع';
     await refresh();
+    await loadAudit();
   } catch {notice('تعذر التحقق من جلسة مدير الموقع. أعد تسجيل الدخول.','error');}
 }
 document.addEventListener('DOMContentLoaded',start);
