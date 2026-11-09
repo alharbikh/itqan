@@ -246,7 +246,7 @@ async function loadAudit(){
     state.audit=Array.isArray(result.audit)?result.audit:[];
     const tbody=$('audit-body');tbody.replaceChildren();
     if(!state.audit.length){emptyRow(tbody,4,'لا توجد عمليات مسجلة بعد.');return;}
-    const labels={'school.delete':'حذف مدرسة','school.status':'تعديل حالة مدرسة',
+    const labels={'school.create':'إنشاء مدرسة','school.update':'تعديل مدرسة','school.delete':'حذف مدرسة','school.status':'تعديل حالة مدرسة',
       'membership.upsert':'تحديث عضوية','user.status':'تعديل حالة حساب'};
     for(const item of state.audit){
       const tr=document.createElement('tr');
