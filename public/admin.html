@@ -1,16 +1,84 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#075b64"><meta name="robots" content="noindex,nofollow">
-  <title>إدارة الموقع | إتقان سمارت برو</title><link rel="stylesheet" href="/app.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#075b64">
+  <meta name="robots" content="noindex,nofollow">
+  <title>مركز إدارة الموقع | إتقان سمارت برو</title>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/admin.css">
+  <script src="/admin.js" defer></script>
 </head>
-<body data-view="admin">
-  <header><div class="top"><a class="brand" href="/index.html"><span class="logo">إ</span><span>إتقان سمارت برو</span></a>
-    <nav aria-label="القائمة الرئيسية"><a href="/index.html">الرئيسية</a><a href="/login.html">الدخول</a><a href="/register.html">حساب جديد</a></nav></div></header>
-  <main class="container"><div class="app-head"><div><span class="eyebrow">المساحة المركزية</span><h1>إدارة الموقع</h1><p>استعراض المدارس المصرح بها فقط.</p></div><button class="button" id="logout" type="button">تسجيل الخروج</button></div>
- <div id="message" role="alert" class="alert" hidden></div><section id="workspace" class="panel" hidden><span class="tag">مدير الموقع</span><h2>مرحبًا، <span id="welcome"></span></h2>
- <p>قائمة المدارس — قراءة فقط. تُفعّل العمليات الإدارية بعد استكمال إجراءاتها الموثوقة.</p><ul class="school-list" id="schools"></ul></section></main>
-  <footer>إتقان سمارت برو — منظومة مدرسية بصلاحيات مستقلة لكل مدرسة</footer>
-  <script src="/app.js" defer></script>
-</body></html>
+<body data-view="admin" class="admin-app nav-expanded">
+<header class="admin-topbar">
+  <div class="admin-top-right">
+    <button type="button" id="nav-toggle" class="nav-toggle" aria-label="تغيير عرض القائمة" aria-expanded="true" aria-controls="admin-sidebar" title="تغيير عرض القائمة">☰</button>
+    <a href="/admin.html" class="admin-identity"><span class="admin-mark" aria-hidden="true">إ</span><span class="admin-brand">إتقان سمارت برو</span></a>
+    <span class="admin-page-title" id="top-current-page">لوحة المعلومات</span>
+  </div>
+  <div class="admin-top-left">
+    <span class="admin-role-chip">مدير الموقع</span>
+    <span id="top-user-name" class="admin-user-name"></span>
+    <button id="logout" type="button" class="button admin-logout">خروج</button>
+  </div>
+</header>
+<div class="admin-frame">
+  <div class="admin-scrim" id="admin-scrim" hidden></div>
+  <aside class="admin-sidebar" id="admin-sidebar" aria-label="أقسام إدارة الموقع">
+    <div class="admin-sidebar-head"><strong>مساحة الإدارة</strong><small>إدارة مركزية آمنة</small></div>
+    <nav class="admin-menu" aria-label="التنقل الداخلي">
+      <button type="button" class="admin-menu-item is-active" data-section="overview" aria-current="page" title="لوحة المعلومات"><span class="menu-icon" aria-hidden="true">▦</span><span class="menu-label">لوحة المعلومات</span></button>
+      <button type="button" class="admin-menu-item" data-section="schools" title="المدارس"><span class="menu-icon" aria-hidden="true">⌂</span><span class="menu-label">المدارس</span></button>
+      <button type="button" class="admin-menu-item" data-section="users" title="المستخدمون"><span class="menu-icon" aria-hidden="true">♙</span><span class="menu-label">المستخدمون</span></button>
+      <button type="button" class="admin-menu-item" data-section="permissions" title="الأدوار والصلاحيات"><span class="menu-icon" aria-hidden="true">◇</span><span class="menu-label">الأدوار والصلاحيات</span></button>
+      <button type="button" class="admin-menu-item" data-section="settings" title="إعدادات المنصة"><span class="menu-icon" aria-hidden="true">⚙</span><span class="menu-label">إعدادات المنصة</span></button>
+    </nav>
+    <div class="sidebar-footer">الإصدار التأسيسي · Cloudflare + Supabase</div>
+  </aside>
+  <main class="admin-content" id="admin-content">
+    <div id="message" class="alert" role="status" aria-live="polite" hidden></div>
+    <section id="section-overview" class="admin-section is-current" aria-labelledby="overview-heading">
+      <div class="section-heading"><div><span class="eyebrow">نظرة شاملة</span><h1 id="overview-heading">لوحة المعلومات</h1><p>متابعة المدارس والحسابات المصرح بها من قاعدة البيانات.</p></div><button class="button" type="button" id="refresh-overview">تحديث البيانات</button></div>
+      <div class="admin-stats">
+        <article class="admin-stat"><span>إجمالي المدارس</span><strong id="stat-schools">—</strong><small>المسجلة في المنصة</small></article>
+        <article class="admin-stat"><span>المدارس النشطة</span><strong id="stat-active">—</strong><small>قيد التشغيل</small></article>
+        <article class="admin-stat"><span>الحسابات</span><strong id="stat-users">—</strong><small>حتى 200 حساب في العرض</small></article>
+        <article class="admin-stat"><span>حالة الاتصال</span><strong class="admin-connect-status" id="stat-connection">جارٍ التحقق</strong><small>Cloudflare / Supabase</small></article>
+      </div>
+      <div class="admin-card"><div class="card-head"><div><h2>آخر المدارس المسجلة</h2><p>ملخص من قاعدة Supabase.</p></div><button type="button" class="button" data-go="schools">عرض المدارس</button></div><div id="overview-schools" class="admin-mini-list"></div></div>
+    </section>
+    <section id="section-schools" class="admin-section" hidden aria-labelledby="schools-heading">
+      <div class="section-heading"><div><span class="eyebrow">إدارة التعليم</span><h1 id="schools-heading">المدارس</h1><p>إنشاء المدارس وتعديل بياناتها بموجب صلاحية مدير الموقع.</p></div><button id="add-school" class="primary" type="button">+ إضافة مدرسة</button></div>
+      <div class="admin-card"><div class="toolbar"><label for="schools-search">بحث في المدارس<input id="schools-search" type="search" placeholder="ابحث باسم المدرسة أو رقمها الوزاري"></label><span class="record-count" id="schools-count"></span></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>المدرسة</th><th>رقم الوزارة</th><th>المرحلة</th><th>الإدارة التعليمية</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody id="schools-body"></tbody></table></div></div>
+    </section>
+    <section id="section-users" class="admin-section" hidden aria-labelledby="users-heading">
+      <div class="section-heading"><div><span class="eyebrow">الحسابات</span><h1 id="users-heading">المستخدمون</h1><p>عرض الحسابات المسجلة؛ منح الأدوار والعضويات سيُفعّل بعد استكمال إجراءات التفويض والتدقيق.</p></div></div>
+      <div class="admin-card"><div class="table-scroll"><table class="admin-table"><thead><tr><th>المستخدم</th><th>حالة الحساب</th><th>تاريخ التسجيل</th></tr></thead><tbody id="users-body"></tbody></table></div></div>
+    </section>
+    <section id="section-permissions" class="admin-section" hidden aria-labelledby="permissions-heading">
+      <div class="section-heading"><div><span class="eyebrow">الوصول الآمن</span><h1 id="permissions-heading">الأدوار والصلاحيات</h1></div></div>
+      <div class="admin-card"><h2>إدارة الصلاحيات</h2><p>تُفرض الأذونات حاليًا في Supabase Auth وPostgreSQL RLS. لن يتاح منح دور مدير موقع أو عضوية مدرسة من المتصفح حتى تجهيز الإجراء الخلفي الموثوق وسجل التدقيق.</p></div>
+    </section>
+    <section id="section-settings" class="admin-section" hidden aria-labelledby="settings-heading">
+      <div class="section-heading"><div><span class="eyebrow">التخصيص</span><h1 id="settings-heading">إعدادات المنصة</h1></div></div>
+      <div class="admin-card"><h2>مظهر التنقل</h2><p>يمكن تغيير القائمة الجانبية من زر ☰ أعلى يمين الشاشة، بين العرض الكامل والأيقونات والإخفاء. يعمل التغيير داخل الجلسة المعروضة دون الاحتفاظ ببيانات الحساب في المتصفح.</p><button type="button" id="settings-cycle-nav" class="button">تغيير عرض القائمة</button></div>
+    </section>
+  </main>
+</div>
+<dialog id="school-dialog" class="school-dialog" aria-labelledby="school-dialog-heading">
+  <form method="dialog" id="school-form" class="school-form">
+    <div class="dialog-header"><h2 id="school-dialog-heading">إضافة مدرسة</h2><button type="button" id="close-school" class="button" aria-label="إغلاق">×</button></div>
+    <div class="field-grid">
+      <label>اسم المدرسة <span aria-hidden="true">*</span><input id="school-name" name="name" maxlength="160" minlength="2" required autocomplete="off"></label>
+      <label>الرقم الوزاري<input id="school-ministry" name="ministry_number" maxlength="160" autocomplete="off"></label>
+      <label>المرحلة التعليمية<select id="school-stage" name="education_stage"><option value="">غير محدد</option><option value="ابتدائي">ابتدائي</option><option value="متوسط">متوسط</option><option value="ثانوي">ثانوي</option><option value="طفولة مبكرة">طفولة مبكرة</option><option value="مجمع">مجمع</option></select></label>
+      <label>فئة المدرسة<select id="school-gender" name="gender"><option value="">غير محدد</option><option value="male">بنين</option><option value="female">بنات</option><option value="mixed">مشترك</option></select></label>
+      <label class="wide-field">الإدارة التعليمية (اختياري)<input id="school-department" name="education_department" maxlength="160"></label>
+    </div>
+    <p id="school-form-error" class="alert error" role="alert" hidden></p>
+    <div class="dialog-actions"><button type="button" id="cancel-school" class="button">إلغاء</button><button id="save-school" class="primary" type="submit">حفظ المدرسة</button></div>
+  </form>
+</dialog>
+</body>
+</html>
