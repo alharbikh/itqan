@@ -2,9 +2,6 @@ name: Verify Itqan
 on: [push, pull_request]
 permissions:
   contents: read
-concurrency:
-  group: itqan-verify-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
   app-and-security:
     runs-on: ubuntu-latest
@@ -30,7 +27,7 @@ jobs:
   schema-bootstrap:
     concurrency:
       group: itqan-local-supabase-schema-bootstrap
-      cancel-in-progress: false
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
