@@ -179,7 +179,7 @@ async function api(request, env, pathname) {
 
 
   if (pathname === '/api/admin/memberships' || pathname === '/api/admin/audit' ||
-      pathname === '/api/admin/roles' || pathname === '/api/admin/actions') {
+      pathname === '/api/admin/roles' || pathname === '/api/admin/site-admins' || pathname === '/api/admin/actions') {
     const current = await session(request, env);
     if (!current.user) return json({ error: 'Unauthorized' }, 401, current.cookies);
     if (current.user.role !== 'site_admin') return json({ error: 'Forbidden' }, 403, current.cookies);
@@ -188,12 +188,14 @@ async function api(request, env, pathname) {
         '/api/admin/memberships': '/rest/v1/school_memberships?select=id,school_id,user_id,access_role,job_role,status,created_at&order=created_at.desc&limit=500',
         '/api/admin/audit': '/rest/v1/site_admin_audit?select=id,actor_user_id,operation,target_type,target_id,details,created_at&order=created_at.desc&limit=100',
         '/api/admin/roles': '/rest/v1/role_permissions?select=role_code,permission_code&order=role_code.asc',
+        '/api/admin/site-admins': '/rest/v1/user_roles?select=user_id,role_code&role_code=eq.site_admin',
       };
       if (!paths[pathname]) return json({ error: 'Method not allowed' }, 405, current.cookies);
       const result = await backend(env, paths[pathname], 'GET', undefined, current.token);
       if (!result.ok) return json({ error: 'Unable to read administration data' }, 502, current.cookies);
       const key = { '/api/admin/memberships': 'memberships',
-        '/api/admin/audit': 'audit', '/api/admin/roles': 'permissions' }[pathname];
+        '/api/admin/audit': 'audit', '/api/admin/roles': 'permissions',
+        '/api/admin/site-admins': 'site_admins' }[pathname];
       return json({ [key]: result.data }, 200, current.cookies);
     }
     if (pathname !== '/api/admin/actions' || request.method !== 'POST')
@@ -224,6 +226,13 @@ async function api(request, env, pathname) {
         keys = ['action','user_id','status'];
         if (!uuid(body.user_id) || !['active','inactive'].includes(body.status))
           return json({ error: 'Invalid user status' }, 400, current.cookies);
+        break;
+      case 'user.role':
+        rpc = 'itqan_admin_manage_site_role';
+        params = { p_user: body.user_id, p_enabled: body.enabled };
+        keys = ['action','user_id','enabled'];
+        if (!uuid(body.user_id) || typeof body.enabled !== 'boolean')
+          return json({ error: 'Invalid role request' }, 400, current.cookies);
         break;
       case 'membership.upsert':
         rpc = 'itqan_admin_manage_membership';
