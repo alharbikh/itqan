@@ -311,6 +311,75 @@ async function api(request, env, pathname) {
     }
     return json({ error: 'Method not allowed' }, 405, current.cookies);
   }
+  // Personnel linking operations use authenticated, auditable PostgreSQL RPCs.
+  if (['/api/school/personnel','/api/school/link-request','/api/school/link-decision',
+       '/api/school/unlink'].includes(pathname) && request.method === 'POST') {
+    const current = await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const body=await input(request);
+    if(!body || typeof body!=='object' || Array.isArray(body))
+      return json({error:'Invalid request'},400,current.cookies);
+    const uuid=x=>typeof x==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(x);
+    const principal=schoolId=>current.user.schoolMemberships.some(m=>
+      m.school_id===schoolId && m.access_role==='school_principal');
+    let rpc,params,fields;
+    if(pathname==='/api/school/personnel'){
+      fields=['school_id','year_id','full_name','national_id','job_title_id'];
+      if(!uuid(body.school_id)||!uuid(body.year_id)||!principal(body.school_id)||
+        typeof body.full_name!=='string'||body.full_name.trim().length<2||
+        body.full_name.trim().length>200||
+        (body.job_title_id!=null&&!uuid(body.job_title_id))||
+        (body.national_id!=null&&!/^[0-9]{10}$/.test(body.national_id)))
+        return json({error:'Invalid personnel request or permission'},403,current.cookies);
+      rpc='itqan_school_create_personnel';
+      params={p_school:body.school_id,p_year:body.year_id,p_name:body.full_name.trim(),
+        p_national_id:body.national_id||null,p_job:body.job_title_id||null};
+    }else if(pathname==='/api/school/link-request'){
+      fields=['school_employee_id'];
+      if(!uuid(body.school_employee_id))return json({error:'Invalid personnel reference'},400,current.cookies);
+      rpc='itqan_school_request_link';params={p_school_employee:body.school_employee_id};
+    }else if(pathname==='/api/school/link-decision'){
+      fields=['school_id','request_id','approve','job_role','note'];
+      if(!uuid(body.school_id)||!principal(body.school_id)||!uuid(body.request_id)||
+         typeof body.approve!=='boolean'||
+         (body.job_role!=null&&!['teacher','vice_principal','counselor','staff'].includes(body.job_role))||
+         (body.note!=null&&(typeof body.note!=='string'||body.note.length>1000)))
+        return json({error:'Invalid approval request or permission'},403,current.cookies);
+      rpc='itqan_school_decide_link';
+      params={p_request:body.request_id,p_approve:body.approve,
+        p_job_role:body.job_role||'staff',p_note:body.note||null};
+    }else{
+      fields=['school_id','user_id','reason'];
+      if(!uuid(body.school_id)||!uuid(body.user_id)||
+        (body.user_id!==current.user.id&&!principal(body.school_id))||
+        typeof body.reason!=='string'||body.reason.trim().length<3||body.reason.length>500)
+        return json({error:'Invalid unlink request or permission'},403,current.cookies);
+      rpc='itqan_school_unlink';
+      params={p_school:body.school_id,p_user:body.user_id,p_reason:body.reason.trim()};
+    }
+    if(Object.keys(body).some(k=>!fields.includes(k)))return json({error:'Unexpected fields'},400,current.cookies);
+    const result=await backend(env,'/rest/v1/rpc/'+rpc,'POST',params,current.token);
+    if(!result.ok){
+      const status=result.data?.code==='42501'?403:
+        result.data?.code==='23505'?409:result.data?.code==='22023'?422:502;
+      return json({error:status===409?'School membership conflict':status===403?'Forbidden':
+        'Unable to complete personnel operation'},status,current.cookies);
+    }
+    return json({ok:true,result:result.data},pathname==='/api/school/link-request'?201:200,current.cookies);
+  }
+  if(pathname==='/api/school/link-requests' && request.method==='GET'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const schoolId=new URL(request.url).searchParams.get('school_id');
+    if(schoolId && !current.user.schoolMemberships.some(m=>m.school_id===schoolId&&m.access_role==='school_principal'))
+      return json({error:'Forbidden'},403,current.cookies);
+    const path='/rest/v1/school_link_requests?select=id,school_id,school_employee_id,user_id,status,requested_at,decided_at,decision_note'+
+      (schoolId?'&school_id=eq.'+encodeURIComponent(schoolId):'&user_id=eq.'+encodeURIComponent(current.user.id))+
+      '&order=requested_at.desc&limit=200';
+    const result=await backend(env,path,'GET',undefined,current.token);
+    return result.ok?json({requests:result.data},200,current.cookies):
+      json({error:'Unable to read linking requests'},502,current.cookies);
+  }
   if (pathname === '/api/school/members' && request.method === 'GET') {
     const current=await session(request,env);
     if(!current.user) return json({error:'Unauthorized'},401,current.cookies);
