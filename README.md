@@ -39,3 +39,5 @@ npx wrangler dev
 ## النشر
 
 يتولى Cloudflare Workers Builds نشر الفرع `main` باستخدام `npx wrangler deploy`، مع تحميل إعدادات `wrangler.jsonc`. تأكد من نجاح نشر Worker الذي يحتوي على `src/worker.js` قبل تفعيل خدمات الحسابات.
+
+يتطلب نشر التطبيق اتصال GitHub مفعلًا لمستودع `alharbikh/itqan`، مع إبقاء فرع الإنتاج `main` واستخدام ملف إعداد Wrangler في جذر المشروع.
