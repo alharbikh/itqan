@@ -91,6 +91,18 @@
     </section>
     <section id="section-permissions" class="admin-section" hidden aria-labelledby="permissions-heading">
       <div class="section-heading"><div><span class="eyebrow">الوصول الآمن</span><h1 id="permissions-heading">الأدوار والصلاحيات</h1></div></div>
+      <div class="admin-card">
+        <h2>مديرو الموقع</h2>
+        <p>ترقية حساب نشط ومؤكد إلى مدير موقع، أو سحب الصلاحية من مدير آخر. يحظر النظام الترقية الذاتية وإزالة آخر مدير.</p>
+        <form id="site-role-form" class="admin-membership-form">
+          <label>حساب المستخدم<select id="site-role-user" required><option value="">اختر الحساب</option></select></label>
+          <label>الإجراء<select id="site-role-enabled"><option value="true">منح صلاحية مدير الموقع</option><option value="false">سحب صلاحية مدير الموقع</option></select></label>
+          <button type="submit" class="primary">اعتماد تغيير الصلاحية</button>
+        </form>
+        <p class="note">لا يمكن تنفيذ الترقية إلا لحساب أكّد بريده الإلكتروني. يجب كتابة عبارة تأكيد إضافية عند منح صلاحية مدير موقع.</p>
+        <h2>حسابات مديري الموقع الحاليين</h2>
+        <div id="site-admins-list" class="admin-mini-list"></div>
+      </div>
       <div class="admin-card"><h2>مصفوفة أدوار المنصة</h2><p>دور مدير الموقع يُنشأ بإجراء موثوق مستقل. يتم تفويض مديري المدارس والموظفين من قسم عضويات المدارس. جميع الأذونات الفعلية يتحقق منها PostgreSQL RLS.</p><div class="table-scroll"><table class="admin-table"><thead><tr><th>الدور</th><th>الصلاحية</th></tr></thead><tbody id="role-matrix-body"></tbody></table></div></div>
     </section>
     <section id="section-settings" class="admin-section" hidden aria-labelledby="settings-heading">
