@@ -311,6 +311,56 @@ async function api(request, env, pathname) {
     }
     return json({ error: 'Method not allowed' }, 405, current.cookies);
   }
+  if(pathname==='/api/catalog' && request.method==='GET'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const endpoints={
+      years:'/rest/v1/academic_years?select=id,label,starts_on,ends_on,is_current&order=starts_on.desc&limit=100',
+      jobs:'/rest/v1/job_titles?select=id,code,title_ar&active=eq.true&order=title_ar.asc&limit=200',
+      frameworks:'/rest/v1/evaluation_frameworks?select=id,code,title_ar,version_no,source_reference&status=eq.active&limit=100',
+      criteria:'/rest/v1/evaluation_criteria?select=id,code,title_ar&active=eq.true&limit=500',
+      stages:'/rest/v1/performance_stage_defaults?select=academic_year_id,stage,starts_on,ends_on,earliest_start,latest_end&limit=200',
+    };
+    const results=await Promise.all(Object.values(endpoints).map(p=>backend(env,p,'GET',undefined,current.token)));
+    if(results.some(x=>!x.ok))return json({error:'Unable to load catalogs'},502,current.cookies);
+    return json(Object.fromEntries(Object.keys(endpoints).map((key,i)=>[key,results[i].data])),200,current.cookies);
+  }
+  if(pathname==='/api/admin/academic-years' && request.method==='POST'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    if(current.user.role!=='site_admin')return json({error:'Forbidden'},403,current.cookies);
+    const b=await input(request);
+    if(!b||typeof b.label!=='string'||b.label.length>100||
+       !['starts_on','ends_on'].every(k=>typeof b[k]==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(b[k]))||
+       (b.is_current!=null&&typeof b.is_current!=='boolean'))
+       return json({error:'Invalid academic year'},400,current.cookies);
+    const r=await backend(env,'/rest/v1/rpc/itqan_admin_create_academic_year','POST',
+      {p_label:b.label,p_start:b.starts_on,p_end:b.ends_on,p_current:b.is_current===true},current.token);
+    return r.ok?json({ok:true,year_id:r.data},201,current.cookies):
+       json({error:'Unable to create academic year'},422,current.cookies);
+  }
+  if(pathname==='/api/school/personnel' && request.method==='GET'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const schoolId=new URL(request.url).searchParams.get('school_id');
+    if(!schoolId||!current.user.schoolMemberships.some(m=>m.school_id===schoolId&&m.access_role==='school_principal'))
+      return json({error:'Forbidden'},403,current.cookies);
+    const r=await backend(env,'/rest/v1/rpc/itqan_school_list_personnel','POST',
+      {p_school:schoolId},current.token);
+    return r.ok?json({personnel:r.data},200,current.cookies):
+      json({error:'Unable to read personnel'},502,current.cookies);
+  }
+  if(pathname==='/api/school/stage-overrides' && request.method==='GET'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const schoolId=new URL(request.url).searchParams.get('school_id');
+    if(!schoolId||!current.user.schoolMemberships.some(m=>m.school_id===schoolId))
+      return json({error:'Forbidden'},403,current.cookies);
+    const r=await backend(env,'/rest/v1/school_stage_overrides?select=academic_year_id,stage,starts_on,ends_on,reason,changed_at&school_id=eq.'+
+      encodeURIComponent(schoolId)+'&limit=100','GET',undefined,current.token);
+    return r.ok?json({overrides:r.data},200,current.cookies):
+      json({error:'Unable to read school stage overrides'},502,current.cookies);
+  }
   // #13: stage / review official frameworks as JSON; only site administrators.
   if (pathname==='/api/admin/framework-batches' ||
       pathname==='/api/admin/framework-actions') {
