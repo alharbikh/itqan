@@ -13,8 +13,7 @@ function item(parent,...texts){const e=document.createElement('div');e.className
  for(const t of texts){const d=document.createElement('span');d.textContent=String(t??'—');e.append(d);}
  parent.append(e);return e;}
 function option(select,value,text){const o=document.createElement('option');o.value=value;o.textContent=text;select.add(o);}
-function principal(){return state.user?.role==='site_admin'||
-  state.user?.schoolMemberships?.some(m=>m.school_id===state.school&&m.access_role==='school_principal');}
+function principal(){return state.user?.schoolMemberships?.some(m=>m.school_id===state.school&&m.access_role==='school_principal');}
 function selectedYear(){return $('year').value;}
 function currentSchool(){return $('school').value;}
 function bindForm(id,callback){$(id).addEventListener('submit',async e=>{
@@ -59,6 +58,13 @@ async function refresh(){
  for(const f of feedback.feedback||[]){
   const box=item(fb,'الموظف: '+f.subject_user_id,'الحالة: '+f.status,
     'جوانب القوة: '+(f.strengths||'—'),'التحسين: '+(f.improvements||'—'),'الإجراءات: '+(f.development_actions||'—'));
+  if(principal()&&f.reviewer_user_id===state.user.id&&f.status==='draft'){
+   const publish=document.createElement('button');publish.type='button';publish.textContent='نشر التغذية الراجعة';
+   publish.onclick=async()=>{if(!confirm('سيطلع الموظف على هذه الملاحظات الوصفية. هل تؤكد؟'))return;
+    try{await api('/api/school/midyear-feedback','PATCH',{action:'publish',school_id:state.school,feedback_id:f.id});
+    msg('نُشرت المراجعة الوصفية','success');await refresh();}catch(e){msg(e.message,'error');}};
+   box.append(publish);
+  }
   if(f.subject_user_id===state.user.id&&f.status==='published'){
    const b=document.createElement('button');b.textContent='إقرار الاطلاع';b.type='button';
    b.onclick=async()=>{try{await api('/api/school/midyear-ack','POST',{feedback_id:f.id});msg('تم توثيق الاطلاع','success');await refresh();}catch(err){msg(err.message,'error');}};
@@ -66,6 +72,28 @@ async function refresh(){
   }
  }
  if(!fb.children.length)item(fb,'لا توجد مراجعات نصفية متاحة لهذا الحساب.');
+ const reviews=await api('/api/school/reviews?school_id='+encodeURIComponent(state.school));
+ const reviewList=$('reviews-list');reviewList.replaceChildren();
+ for(const r of reviews.reviews||[]){
+  const box=item(reviewList,'الموظف: '+r.subject_user_id,'الحالة: '+r.status,
+    'النتيجة: '+(r.final_score_100??'لم تحتسب')+' / 100');
+  if(principal()&&r.status==='draft'){
+    const edit=document.createElement('button');edit.type='button';edit.textContent='تقدير المعايير';
+    edit.onclick=()=>scoreEditor(r,box).catch(e=>msg(e.message,'error'));box.append(edit);
+    const submit=document.createElement('button');submit.type='button';submit.textContent='إرسال التقييم للمراجعة';
+    submit.onclick=async()=>{try{const answer=await api('/api/school/review-actions','POST',
+    {action:'submit',review_id:r.id});msg('أُرسل التقييم: '+answer.result+' / 100','success');await refresh();}
+    catch(e){msg(e.message,'error');}};box.append(submit);
+  }
+  if(principal()&&r.status==='submitted'){
+    const approve=document.createElement('button');approve.type='button';approve.textContent='اعتماد داخلي للتقييم';
+    approve.onclick=async()=>{if(!confirm('هذا اعتماد داخلي مساند، وليس اعتمادًا رسميًا في فارس. هل تؤكد؟'))return;
+     try{await api('/api/school/review-actions','POST',{action:'approve',review_id:r.id});
+       msg('تم الاعتماد الداخلي','success');await refresh();}catch(e){msg(e.message,'error');}};
+    box.append(approve);
+  }
+ }
+ if(!reviewList.children.length)item(reviewList,'لا توجد تقييمات متاحة للعرض.');
  if(principal()){
   const [p,requests]=await Promise.all([
    api('/api/school/personnel?school_id='+encodeURIComponent(state.school)),
@@ -98,7 +126,34 @@ async function refresh(){
    }
   }
   if(!req.children.length)item(req,'لا توجد طلبات ربط.');
+  const shared=await api('/api/school/shared-evidence?school_id='+encodeURIComponent(state.school));
+  const sharedList=$('shared-evidence-list');sharedList.replaceChildren();
+  for(const evidence of shared.evidence||[]){
+   const box=item(sharedList,'الموظف: '+evidence.user_id,evidence.title,evidence.description||'بدون وصف');
+   if(evidence.link_url&&/^https:\/\//.test(evidence.link_url)){
+    const link=document.createElement('a');link.href=evidence.link_url;link.rel='noopener noreferrer';
+    link.target='_blank';link.textContent='فتح الرابط';box.append(link);}
+  }
+  if(!sharedList.children.length)item(sharedList,'لم يشارك الموظفون شواهد شخصية مع المدرسة.');
  }
+}
+async function scoreEditor(review,container){
+ const d=await api('/api/framework-details?framework_id='+encodeURIComponent(review.framework_id));
+ const criteria=(d.criteria||[]).filter(x=>x.job_title_id===review.job_title_id);
+ if(!criteria.length)throw Error('لم تُعثر على معايير مرتبطة بوظيفة الموظف.');
+ const pane=document.createElement('div');pane.className='perf-list';
+ for(const c of criteria){
+  const row=item(pane,c.title_ar+' — الوزن '+c.weight+'%',c.interpretation||'لا يوجد تفسير مضاف');
+  const score=document.createElement('select');
+  for(let i=1;i<=5;i++)option(score,String(i),'المستوى '+i);
+  const note=document.createElement('input');note.placeholder='ملاحظات المقيم (اختياري)';note.maxLength=2000;
+  const save=document.createElement('button');save.type='button';save.textContent='حفظ درجة المعيار';
+  save.onclick=async()=>{try{await api('/api/school/review-actions','POST',
+   {action:'score',review_id:review.id,criterion_id:c.criterion_id,score_level:Number(score.value),note:note.value});
+   msg('حُفظ تقدير العنصر','success');}catch(e){msg(e.message,'error');}};
+  row.append(score,note,save);
+ }
+ container.append(pane);
 }
 async function showCriteria(frameworkId,box){
  try{const r=await api('/api/framework-details?framework_id='+encodeURIComponent(frameworkId));
@@ -125,6 +180,10 @@ async function init(){
   const jobs=$('personnel-job');for(const j of state.jobs)option(jobs,j.id,j.title_ar);
   const frameworks=$('framework');frameworks.replaceChildren();option(frameworks,'','اختر الإطار المنشور');
   for(const f of state.frameworks)option(frameworks,f.id,f.title_ar+' (v'+f.version_no+')');
+  const reviewFramework=$('review-framework');reviewFramework.replaceChildren();
+  for(const f of state.frameworks)option(reviewFramework,f.id,f.title_ar+' (v'+f.version_no+')');
+  const reviewJob=$('review-job');reviewJob.replaceChildren();
+  for(const j of state.jobs)option(reviewJob,j.id,j.title_ar);
   const crit=$('link-criterion');crit.replaceChildren();option(crit,'','اختر المعيار');
   for(const x of state.criteria)option(crit,x.id,x.title_ar);
   await refresh();
@@ -138,9 +197,21 @@ bindForm('framework-ack',async()=>api('/api/school/framework-ack','POST',
 bindForm('evidence-form',async()=>{await api('/api/evidence/personal','POST',
  {title:$('evidence-title').value,description:$('evidence-description').value,
  link_url:$('evidence-url').value});$('evidence-form').reset();});
+$('share-evidence').onclick=async()=>{try{
+ await api('/api/evidence/share','POST',{evidence_id:$('link-evidence').value,school_id:state.school});
+ msg('شاركت الشاهد مع المدرسة الحالية','success');await refresh();}catch(e){msg(e.message,'error');}};
+$('unshare-evidence').onclick=async()=>{try{
+ await api('/api/evidence/share','DELETE',{evidence_id:$('link-evidence').value,school_id:state.school});
+ msg('ألغيت مشاركة الشاهد مع المدرسة','success');await refresh();}catch(e){msg(e.message,'error');}};
 $('link-save').onclick=async()=>{try{await api('/api/evidence/criterion-link','POST',
  {evidence_id:$('link-evidence').value,criterion_id:$('link-criterion').value});
  msg('تم ربط الشاهد','success');}catch(e){msg(e.message,'error');}};
+bindForm('review-form',async()=>{const y=state.years.find(x=>x.id===selectedYear());
+ if(!y)throw Error('اختر العام الدراسي');
+ await api('/api/school/reviews','POST',{school_id:state.school,subject_user_id:$('review-subject').value,
+ year:y.label,framework_id:$('review-framework').value,job_title_id:$('review-job').value});
+ $('review-form').reset();
+});
 bindForm('personnel-form',async()=>{
  if(!selectedYear())throw Error('اختر العام الدراسي أولًا');
  const data=await api('/api/school/personnel','POST',
