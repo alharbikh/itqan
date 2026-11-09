@@ -260,6 +260,14 @@ export default {
   async fetch(request, env) {
     const pathname = new URL(request.url).pathname;
     try {
+      if (env.PREVIEW_ONLY === 'true') {
+        if (pathname.startsWith(API_PREFIX) || pathname === '/admin.html' || pathname === '/school.html')
+          return json({error:'Not available in visual preview'},403);
+        if (pathname === '/admin-preview.html')
+          return secureAsset(await env.ASSETS.fetch(request),true);
+      } else if (pathname === '/admin-preview.html') {
+        return json({error:'Not found'},404);
+      }
       if (pathname.startsWith(API_PREFIX)) return await api(request, env, pathname);
       if (pathname === '/admin.html' || pathname === '/school.html') {
         const current = await session(request, env);
