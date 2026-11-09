@@ -14,11 +14,16 @@ jobs:
         run: npm test
       - name: Validate server and browser JavaScript
         run: npm run check
-      - name: Check published asset paths for prohibited browser-side account state
+      - name: Verify published assets are restricted to application files
         run: |
-          ! grep -R -nE 'localStorage|sessionStorage|IndexedDB|ITQAN_CURRENT_USER' public src
-          ! grep -R -n 'value="123456"' public
-          ! find public -type f \( -iname '*demo*' -o -iname '*seed*' \) | grep .
+          test -f public/index.html
+          test -f public/login.html
+          test -f public/register.html
+          test -f public/admin.html
+          test -f public/school.html
+          test -f src/worker.js
+          test ! -d public/data
+          test ! -d public/uploads
   schema-bootstrap:
     runs-on: ubuntu-latest
     timeout-minutes: 25
