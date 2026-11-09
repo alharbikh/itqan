@@ -31,6 +31,9 @@
       <button type="button" class="admin-menu-item is-active" data-section="overview" aria-current="page" title="لوحة المعلومات"><span class="menu-icon" aria-hidden="true">▦</span><span class="menu-label">لوحة المعلومات</span></button>
       <button type="button" class="admin-menu-item" data-section="schools" title="المدارس"><span class="menu-icon" aria-hidden="true">⌂</span><span class="menu-label">المدارس</span></button>
       <button type="button" class="admin-menu-item" data-section="users" title="المستخدمون"><span class="menu-icon" aria-hidden="true">♙</span><span class="menu-label">المستخدمون</span></button>
+      <button type="button" class="admin-menu-item" data-section="memberships" title="عضويات المدارس"><span class="menu-icon" aria-hidden="true">♧</span><span class="menu-label">عضويات المدارس</span></button>
+      <button type="button" class="admin-menu-item" data-section="audit" title="سجل العمليات"><span class="menu-icon" aria-hidden="true">▤</span><span class="menu-label">سجل العمليات</span></button>
+      <button type="button" class="admin-menu-item" data-section="resources" title="أدوات مدير الموقع"><span class="menu-icon" aria-hidden="true">⌘</span><span class="menu-label">أدوات مدير الموقع</span></button>
       <button type="button" class="admin-menu-item" data-section="permissions" title="الأدوار والصلاحيات"><span class="menu-icon" aria-hidden="true">◇</span><span class="menu-label">الأدوار والصلاحيات</span></button>
       <button type="button" class="admin-menu-item" data-section="settings" title="إعدادات المنصة"><span class="menu-icon" aria-hidden="true">⚙</span><span class="menu-label">إعدادات المنصة</span></button>
     </nav>
@@ -49,16 +52,46 @@
       <div class="admin-card"><div class="card-head"><div><h2>آخر المدارس المسجلة</h2><p>ملخص من قاعدة Supabase.</p></div><button type="button" class="button" data-go="schools">عرض المدارس</button></div><div id="overview-schools" class="admin-mini-list"></div></div>
     </section>
     <section id="section-schools" class="admin-section" hidden aria-labelledby="schools-heading">
-      <div class="section-heading"><div><span class="eyebrow">إدارة التعليم</span><h1 id="schools-heading">المدارس</h1><p>إنشاء المدارس وتعديل بياناتها بموجب صلاحية مدير الموقع.</p></div><button id="add-school" class="primary" type="button">+ إضافة مدرسة</button></div>
+      <div class="section-heading"><div><span class="eyebrow">إدارة التعليم</span><h1 id="schools-heading">المدارس</h1><p>إضافة المدارس وتعديلها وتعطيلها، وحذف المدارس الخالية من السجلات المرتبطة فقط.</p></div><button id="add-school" class="primary" type="button">+ إضافة مدرسة</button></div>
       <div class="admin-card"><div class="toolbar"><label for="schools-search">بحث في المدارس<input id="schools-search" type="search" placeholder="ابحث باسم المدرسة أو رقمها الوزاري"></label><span class="record-count" id="schools-count"></span></div><div class="table-scroll"><table class="admin-table"><thead><tr><th>المدرسة</th><th>رقم الوزارة</th><th>المرحلة</th><th>الإدارة التعليمية</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody id="schools-body"></tbody></table></div></div>
     </section>
     <section id="section-users" class="admin-section" hidden aria-labelledby="users-heading">
       <div class="section-heading"><div><span class="eyebrow">الحسابات</span><h1 id="users-heading">المستخدمون</h1><p>عرض الحسابات المسجلة؛ منح الأدوار والعضويات سيُفعّل بعد استكمال إجراءات التفويض والتدقيق.</p></div></div>
-      <div class="admin-card"><div class="table-scroll"><table class="admin-table"><thead><tr><th>المستخدم</th><th>حالة الحساب</th><th>تاريخ التسجيل</th></tr></thead><tbody id="users-body"></tbody></table></div></div>
+      <div class="admin-card"><div class="table-scroll"><table class="admin-table"><thead><tr><th>المستخدم</th><th>حالة الحساب</th><th>تاريخ التسجيل</th><th>الإجراءات</th></tr></thead><tbody id="users-body"></tbody></table></div></div>
+    </section>
+    <section id="section-memberships" class="admin-section" hidden aria-labelledby="memberships-heading">
+      <div class="section-heading"><div><span class="eyebrow">إدارة الوصول</span><h1 id="memberships-heading">عضويات المدارس</h1><p>ربط حساب موجود بمدرسة ومنحه دور مدير المدرسة أو موظف، أو تعطيل العضوية. تُسجل جميع الإجراءات للتدقيق.</p></div></div>
+      <div class="admin-card">
+        <h2>منح أو تعديل العضوية</h2>
+        <form id="membership-form" class="admin-membership-form">
+          <label>المدرسة<select id="membership-school" required><option value="">اختر المدرسة</option></select></label>
+          <label>المستخدم<select id="membership-user" required><option value="">اختر حسابًا مسجلًا</option></select></label>
+          <label>صلاحية الوصول<select id="membership-role"><option value="employee">موظف</option><option value="school_principal">مدير المدرسة</option></select></label>
+          <label>العمل الحالي<select id="membership-job"><option value="teacher">معلم</option><option value="principal">مدير</option><option value="vice_principal">وكيل</option><option value="counselor">موجه طلابي</option><option value="staff">إداري</option></select></label>
+          <label>الحالة<select id="membership-status"><option value="active">نشط</option><option value="inactive">غير نشط</option></select></label>
+          <button type="submit" class="primary">حفظ العضوية</button>
+        </form>
+        <p class="note">لا يمكن منح صلاحية مدير الموقع من هذه الصفحة، ولا يسمح النظام لمنح المستخدم نفسه صلاحيات. إنشاء الحساب يتم من صفحة التسجيل والتحقق عبر Supabase Auth.</p>
+      </div>
+      <div class="admin-card"><h2>العضويات المسجلة</h2><div class="table-scroll"><table class="admin-table"><thead><tr><th>المدرسة</th><th>المستخدم</th><th>صلاحية الوصول</th><th>العمل الحالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody id="memberships-body"></tbody></table></div></div>
+    </section>
+    <section id="section-audit" class="admin-section" hidden aria-labelledby="audit-heading">
+      <div class="section-heading"><div><span class="eyebrow">سجلات التدقيق</span><h1 id="audit-heading">سجل عمليات الإدارة</h1><p>أحدث 100 عملية إدارة مدارس أو عضويات أو حسابات مسجلة في Supabase.</p></div><button class="button" id="refresh-audit" type="button">تحديث السجل</button></div>
+      <div class="admin-card"><div class="table-scroll"><table class="admin-table"><thead><tr><th>العملية</th><th>الهدف</th><th>المنفذ</th><th>التاريخ</th></tr></thead><tbody id="audit-body"></tbody></table></div></div>
+    </section>
+    <section id="section-resources" class="admin-section" hidden aria-labelledby="resources-heading">
+      <div class="section-heading"><div><span class="eyebrow">أدوات مدير الموقع</span><h1 id="resources-heading">قاعدة البيانات والمشروع</h1><p>روابط للإدارة الفنية والمخطط المعتمد، دون إظهار أسرار أو صلاحيات SQL داخل الموقع.</p></div></div>
+      <div class="admin-card admin-resource-links">
+        <a href="https://supabase.com/dashboard/project/vyntaycjdspjfkbwnvbh/editor" target="_blank" rel="noopener noreferrer">فتح قاعدة البيانات في Supabase Dashboard ↗</a>
+        <a href="https://supabase.com/dashboard/project/vyntaycjdspjfkbwnvbh/auth/users" target="_blank" rel="noopener noreferrer">المستخدمون في Supabase Auth ↗</a>
+        <a href="https://github.com/alharbikh/itqan/blob/main/docs/SCHEMA_CURRENT.md" target="_blank" rel="noopener noreferrer">ملف هيكل قاعدة البيانات ↗</a>
+        <a href="https://github.com/alharbikh/itqan/tree/main/supabase/migrations" target="_blank" rel="noopener noreferrer">سجل ترحيلات قاعدة البيانات ↗</a>
+        <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">لوحة Cloudflare Workers ↗</a>
+      </div>
     </section>
     <section id="section-permissions" class="admin-section" hidden aria-labelledby="permissions-heading">
       <div class="section-heading"><div><span class="eyebrow">الوصول الآمن</span><h1 id="permissions-heading">الأدوار والصلاحيات</h1></div></div>
-      <div class="admin-card"><h2>إدارة الصلاحيات</h2><p>تُفرض الأذونات حاليًا في Supabase Auth وPostgreSQL RLS. لن يتاح منح دور مدير موقع أو عضوية مدرسة من المتصفح حتى تجهيز الإجراء الخلفي الموثوق وسجل التدقيق.</p></div>
+      <div class="admin-card"><h2>مصفوفة أدوار المنصة</h2><p>دور مدير الموقع يُنشأ بإجراء موثوق مستقل. يتم تفويض مديري المدارس والموظفين من قسم عضويات المدارس. جميع الأذونات الفعلية يتحقق منها PostgreSQL RLS.</p><div class="table-scroll"><table class="admin-table"><thead><tr><th>الدور</th><th>الصلاحية</th></tr></thead><tbody id="role-matrix-body"></tbody></table></div></div>
     </section>
     <section id="section-settings" class="admin-section" hidden aria-labelledby="settings-heading">
       <div class="section-heading"><div><span class="eyebrow">التخصيص</span><h1 id="settings-heading">إعدادات المنصة</h1></div></div>
