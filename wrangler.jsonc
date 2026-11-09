@@ -9,5 +9,9 @@
     "run_worker_first": true,
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none"
+  },
+  "vars": {
+    "SUPABASE_URL": "https://vyntaycjdspjfkbwnvbh.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_XNxo97lyKtrqLxjCLSdiew_uCLiZnlp"
   }
 }
