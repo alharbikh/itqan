@@ -134,6 +134,7 @@ test('non-admin cannot execute privileged RPC actions',async()=>{
       {action:'school.delete',school_id:schoolId},
       {action:'membership.upsert',school_id:schoolId,user_id:userId,access_role:'school_principal',job_role:'principal',status:'active'},
       {action:'user.status',user_id:userId,status:'inactive'},
+      {action:'user.role',user_id:userId,enabled:true},
     ]) {
       const r=await worker.fetch(request('/api/admin/actions','POST',action),env);
       assert.equal(r.status,403);
@@ -190,5 +191,25 @@ test('admin role matrix, memberships and audit logs use authenticated reads',asy
     }
     const a=await worker.fetch(request('/api/admin/roles'),env);
     assert.equal((await a.json()).permissions[0].role_code,'employee');
+  }finally{m.close();}
+});
+
+test('site admin role delegation is only a guarded boolean RPC',async()=>{
+  const m=mockSupabase();
+  try{
+    const a=await worker.fetch(request('/api/admin/actions','POST',
+      {action:'user.role',user_id:userId,enabled:true}),env);
+    assert.equal(a.status,200);
+    const write=m.writes.find(x=>x.url.endsWith('/rpc/itqan_admin_manage_site_role'));
+    assert.equal(write.headers.authorization,'Bearer mock-access');
+    assert.deepEqual(JSON.parse(write.body),{p_user:userId,p_enabled:true});
+    for(const invalid of [
+      {action:'user.role',user_id:userId,enabled:'true'},
+      {action:'user.role',user_id:userId,enabled:true,role_code:'site_admin'},
+      {action:'user.role',user_id:'other',enabled:false},
+    ]){
+      const r=await worker.fetch(request('/api/admin/actions','POST',invalid),env);
+      assert.equal(r.status,400);
+    }
   }finally{m.close();}
 });
