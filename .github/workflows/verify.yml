@@ -25,6 +25,9 @@ jobs:
           test ! -d public/data
           test ! -d public/uploads
   schema-bootstrap:
+    concurrency:
+      group: itqan-local-supabase-schema-bootstrap
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
