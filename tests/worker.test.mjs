@@ -145,3 +145,36 @@ test('logout invalidates both httpOnly cookies', async () => {
     assert.ok(response.headers.getSetCookie().every(c => c.includes('Max-Age=0')));
   } finally { mock.restore(); }
 });
+
+
+test('new personnel and evaluation routes reject unauthenticated and unprivileged callers', async () => {
+  const mock = interceptedFetch();
+  try {
+    const anonymous = await worker.fetch(req('/api/evidence/personal'), ENV);
+    assert.equal(anonymous.status, 401);
+    const framework = await worker.fetch(req('/api/admin/framework-batches', authenticated()), ENV);
+    assert.equal(framework.status, 403);
+    assert.equal(mock.calls.some(x => x.path === '/rest/v1/framework_import_batches'), false);
+    const link = await worker.fetch(req('/api/school/link-decision', {
+      method: 'POST',
+      headers: { ...authenticated().headers, origin: ORIGIN, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        school_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        request_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        approve: true, job_role: 'teacher',
+      }),
+    }), ENV);
+    assert.equal(link.status, 403);
+    assert.equal(mock.calls.some(x => x.path.endsWith('/rpc/itqan_school_decide_link')), false);
+    const score = await worker.fetch(req('/api/school/review-actions', {
+      method: 'POST',
+      headers: { ...authenticated().headers, origin: ORIGIN, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action: 'score', review_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        criterion_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', score_level: 6,
+      }),
+    }), ENV);
+    assert.equal(score.status, 400);
+    assert.equal(mock.calls.some(x => x.path.endsWith('/rpc/itqan_school_score_criterion')), false);
+  } finally { mock.restore(); }
+});
