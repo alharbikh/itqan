@@ -2,6 +2,9 @@ name: Verify Itqan
 on: [push, pull_request]
 permissions:
   contents: read
+concurrency:
+  group: itqan-verify-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   app-and-security:
     runs-on: ubuntu-latest
