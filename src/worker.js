@@ -178,7 +178,7 @@ async function api(request, env, pathname) {
   }
 
   if (pathname === '/api/admin/schools' || pathname === '/api/admin/users' ||
-      /^\\/api\\/admin\\/schools\\/[0-9a-f-]{36}$/.test(pathname)) {
+      /^\/api\/admin\/schools\/[0-9a-f-]{36}$/.test(pathname)) {
     const current = await session(request, env);
     if (!current.user) return json({ error: 'Unauthorized' }, 401, current.cookies);
     if (current.user.role !== 'site_admin') return json({ error: 'Forbidden' }, 403, current.cookies);
