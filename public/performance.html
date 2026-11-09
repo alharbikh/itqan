@@ -34,6 +34,8 @@
    <div class="perf-grid perf-slim"><label>الشاهد<select id="link-evidence"><option value="">اختر الشاهد</option></select></label>
     <label>المعيار<select id="link-criterion"><option value="">اختر المعيار</option></select></label>
     <div><button id="link-save" type="button">ربط الشاهد بالمعيار</button></div></div>
+   <div class="perf-grid perf-slim"><button id="share-evidence" type="button">مشاركة الشاهد المحدد مع المدرسة</button>
+    <button id="unshare-evidence" type="button">إلغاء مشاركة الشاهد المحدد</button></div>
    <div id="evidence-list" class="perf-list"></div>
   </section>
   <section class="perf-section">
@@ -60,6 +62,23 @@
      <label>معرف حساب الموظف<input id="unlink-user" required></label>
      <label>سبب فك الارتباط<input id="unlink-reason" minlength="3" maxlength="500" required></label>
      <div><button type="submit">إنهاء الارتباط وتوثيقه</button></div>
+   </form>
+  </section>
+  <section class="perf-section principal-panel" hidden>
+   <h2>الشواهد التي شاركها الموظفون مع المدرسة</h2><div id="shared-evidence-list" class="perf-list"></div>
+  </section>
+  <section class="perf-section">
+   <h2>التقييم الختامي المساند</h2>
+   <p>تقدير خماسي لكل عنصر مع احتساب الوزن النسبي، وإجراءات إرسال واعتماد داخل إتقان. لا يحل الاعتماد الداخلي محل النظام الرسمي.</p>
+   <div id="reviews-list" class="perf-list"></div>
+  </section>
+  <section class="perf-section principal-panel" hidden>
+   <h2>بدء تقييم ختامي</h2>
+   <form id="review-form" class="perf-grid">
+    <label>معرف حساب الموظف<input id="review-subject" required></label>
+    <label>إطار التقييم<select id="review-framework" required></select></label>
+    <label>الوظيفة<select id="review-job" required></select></label>
+    <div><button type="submit">إنشاء مسودة تقييم</button></div>
    </form>
   </section>
   <section class="perf-section principal-panel" hidden>
