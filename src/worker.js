@@ -553,6 +553,97 @@ async function api(request, env, pathname) {
     return r.ok?json({ok:true,feedback:r.data?.[0]},201,current.cookies):
        json({error:'Unable to save midpoint feedback'},422,current.cookies);
   }
+  // #15: personal evidence is shared only after an explicit employee action.
+  if(pathname==='/api/evidence/share'&&['POST','DELETE'].includes(request.method)){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const b=await input(request),uuid=x=>typeof x==='string'&&/^[0-9a-f-]{36}$/i.test(x);
+    if(!b||!uuid(b.evidence_id)||!uuid(b.school_id))return json({error:'Invalid evidence share'},400,current.cookies);
+    const isPost=request.method==='POST';
+    const url='/rest/v1/personal_evidence_shares'+(isPost?'':('?evidence_id=eq.'+
+      encodeURIComponent(b.evidence_id)+'&school_id=eq.'+encodeURIComponent(b.school_id)));
+    const r=await backend(env,url,request.method,isPost?{
+      evidence_id:b.evidence_id,school_id:b.school_id,user_id:current.user.id
+    }:undefined,current.token);
+    return r.ok?json({ok:true},200,current.cookies):json({error:'Unable to change evidence sharing'},422,current.cookies);
+  }
+  if(pathname==='/api/school/shared-evidence'&&request.method==='GET'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const schoolId=new URL(request.url).searchParams.get('school_id');
+    if(!schoolId||!current.user.schoolMemberships.some(m=>m.school_id===schoolId&&m.access_role==='school_principal'))
+      return json({error:'Forbidden'},403,current.cookies);
+    const shares=await backend(env,'/rest/v1/personal_evidence_shares?select=evidence_id,user_id,shared_at&school_id=eq.'+
+      encodeURIComponent(schoolId)+'&revoked_at=is.null&limit=200','GET',undefined,current.token);
+    if(!shares.ok)return json({error:'Unable to read shared items'},502,current.cookies);
+    const rows=shares.data||[];
+    if(!rows.length)return json({shares:[],evidence:[]},200,current.cookies);
+    const ids=rows.map(x=>encodeURIComponent(x.evidence_id));
+    const evidence=await backend(env,'/rest/v1/personal_evidence?select=id,title,description,link_url,user_id&' +
+       'id=in.('+ids.join(',')+')','GET',undefined,current.token);
+    return evidence.ok?json({shares:rows,evidence:evidence.data},200,current.cookies):
+      json({error:'Unable to read shared evidence'},502,current.cookies);
+  }
+  if(pathname==='/api/school/evidence-review'&&request.method==='POST'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const b=await input(request);
+    if(!b||typeof b.evidence_id!=='string'||!/^[0-9a-f-]{36}$/i.test(b.evidence_id)||
+      !['approved','rejected','needs_changes'].includes(b.status)||
+      (b.note!=null&&(typeof b.note!=='string'||b.note.length>2000)))
+      return json({error:'Invalid evidence review'},400,current.cookies);
+    const r=await backend(env,'/rest/v1/rpc/itqan_school_review_evidence','POST',
+      {p_evidence:b.evidence_id,p_status:b.status,p_note:b.note||null},current.token);
+    return r.ok?json({ok:true},200,current.cookies):
+      json({error:r.data?.code==='42501'?'Forbidden':'Review rejected'},r.data?.code==='42501'?403:422,current.cookies);
+  }
+  // #16: score an official framework criterion, submit the completed assessment and approve internally.
+  if(pathname==='/api/school/reviews'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    if(request.method==='GET'){
+      const schoolId=new URL(request.url).searchParams.get('school_id');
+      if(!schoolId||!/^[0-9a-f-]{36}$/i.test(schoolId))return json({error:'Invalid school'},400,current.cookies);
+      const r=await backend(env,'/rest/v1/performance_reviews?select=id,school_id,subject_user_id,reviewer_user_id,academic_year,framework_id,job_title_id,status,final_score_100,visible_to_employee,approved_at&school_id=eq.'+
+        encodeURIComponent(schoolId)+'&order=created_at.desc&limit=200','GET',undefined,current.token);
+      return r.ok?json({reviews:r.data},200,current.cookies):
+        json({error:'Unable to read school evaluations'},502,current.cookies);
+    }
+    if(request.method!=='POST')return json({error:'Method not allowed'},405,current.cookies);
+    const b=await input(request);
+    const uuid=x=>typeof x==='string'&&/^[0-9a-f-]{36}$/i.test(x);
+    if(!b||!uuid(b.school_id)||!uuid(b.subject_user_id)||!uuid(b.framework_id)||!uuid(b.job_title_id)||
+       typeof b.year!=='string'||b.year.length>60||
+       !current.user.schoolMemberships.some(m=>m.school_id===b.school_id&&m.access_role==='school_principal'))
+      return json({error:'Invalid review or permission'},403,current.cookies);
+    const r=await backend(env,'/rest/v1/rpc/itqan_school_create_review','POST',
+      {p_school:b.school_id,p_subject:b.subject_user_id,p_year:b.year,p_framework:b.framework_id,p_job:b.job_title_id},current.token);
+    return r.ok?json({review_id:r.data},201,current.cookies):
+      json({error:r.data?.code==='42501'?'Forbidden':'Unable to create review'},r.data?.code==='42501'?403:422,current.cookies);
+  }
+  if(pathname==='/api/school/review-actions'&&request.method==='POST'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const b=await input(request);
+    const uuid=x=>typeof x==='string'&&/^[0-9a-f-]{36}$/i.test(x);
+    if(!b||!uuid(b.review_id))return json({error:'Invalid review'},400,current.cookies);
+    let rpc,params;
+    if(b.action==='score'){
+      if(!uuid(b.criterion_id)||!Number.isInteger(b.score_level)||b.score_level<1||b.score_level>5||
+       (b.note!=null&&(typeof b.note!=='string'||b.note.length>2000)))
+       return json({error:'Invalid score'},400,current.cookies);
+      rpc='itqan_school_score_criterion';
+      params={p_review:b.review_id,p_criterion:b.criterion_id,p_level:b.score_level,p_note:b.note||null};
+    }else if(b.action==='submit'){
+      rpc='itqan_school_submit_review';params={p_review:b.review_id};
+    }else if(b.action==='approve'){
+      rpc='itqan_school_approve_review';params={p_review:b.review_id};
+    }else return json({error:'Unknown review action'},400,current.cookies);
+    const r=await backend(env,'/rest/v1/rpc/'+rpc,'POST',params,current.token);
+    return r.ok?json({ok:true,result:r.data},200,current.cookies):
+      json({error:r.data?.code==='42501'?'Forbidden':'Review criteria incomplete or invalid'},
+        r.data?.code==='42501'?403:422,current.cookies);
+  }
   // Personnel linking operations use authenticated, auditable PostgreSQL RPCs.
   if (['/api/school/personnel','/api/school/link-request','/api/school/link-decision',
        '/api/school/unlink'].includes(pathname) && request.method === 'POST') {
