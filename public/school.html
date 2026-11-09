@@ -1,16 +1,62 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#075b64"><meta name="robots" content="noindex,nofollow">
-  <title>مساحة المدرسة | إتقان سمارت برو</title><link rel="stylesheet" href="/app.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#075b64"><meta name="robots" content="noindex,nofollow">
+<title>مساحة المدرسة | إتقان سمارت برو</title>
+<link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/admin.css"><link rel="stylesheet" href="/school.css">
+<script src="/school.js" defer></script>
 </head>
-<body data-view="school">
-  <header><div class="top"><a class="brand" href="/index.html"><span class="logo">إ</span><span>إتقان سمارت برو</span></a>
-    <nav aria-label="القائمة الرئيسية"><a href="/index.html">الرئيسية</a><a href="/login.html">الدخول</a><a href="/register.html">حساب جديد</a></nav></div></header>
-  <main class="container"><div class="app-head"><div><span class="eyebrow">بيئة المدرسة</span><h1>مساحة المدرسة</h1><p>البيانات الظاهرة مرتبطة بصلاحيات حسابك.</p></div><button class="button" id="logout" type="button">تسجيل الخروج</button></div>
- <div id="message" role="alert" class="alert" hidden></div><section id="workspace" class="panel" hidden><span class="tag">حساب معتمد</span><h2>مرحبًا، <span id="welcome"></span></h2>
- <p>المدارس المتاحة — قراءة فقط. تُضاف وظائف المدرسة تدريجيًا بعد اختبار الصلاحيات.</p><ul class="school-list" id="schools"></ul></section></main>
-  <footer>إتقان سمارت برو — منظومة مدرسية بصلاحيات مستقلة لكل مدرسة</footer>
-  <script src="/app.js" defer></script>
+<body data-view="school" class="admin-app nav-expanded">
+<header class="admin-topbar">
+  <div class="admin-top-right">
+    <button id="nav-toggle" class="nav-toggle" type="button" aria-label="تغيير حالة القائمة" aria-expanded="true" aria-controls="school-sidebar">☰</button>
+    <a href="/school.html" class="admin-identity"><span class="admin-mark" aria-hidden="true">إ</span><span class="admin-brand">إتقان سمارت برو</span></a>
+    <span id="top-current-page" class="admin-page-title">لوحة المدرسة</span>
+  </div>
+  <div class="admin-top-left"><span id="top-school-role" class="admin-role-chip">حساب مدرسي</span><span id="top-user-name" class="admin-user-name"></span><button id="logout" type="button" class="button admin-logout">خروج</button></div>
+</header>
+<div class="admin-frame">
+  <div class="admin-scrim" id="admin-scrim" hidden></div>
+  <aside class="admin-sidebar" id="school-sidebar" aria-label="أقسام مساحة المدرسة">
+    <div class="admin-sidebar-head"><strong>مساحة المدرسة</strong><small>الوصول مرتبط بعضوية الحساب</small></div>
+    <nav class="admin-menu" aria-label="أقسام المدرسة">
+      <button type="button" class="admin-menu-item is-active" aria-current="page" data-section="overview" title="لوحة المدرسة"><span class="menu-icon" aria-hidden="true">▦</span><span class="menu-label">لوحة المدرسة</span></button>
+      <button type="button" class="admin-menu-item" data-section="membership" title="مدارسي وصلاحياتي"><span class="menu-icon" aria-hidden="true">⌂</span><span class="menu-label">مدارسي وصلاحياتي</span></button>
+      <button type="button" class="admin-menu-item principal-only" data-section="members" title="منسوبو المدرسة" hidden><span class="menu-icon" aria-hidden="true">♙</span><span class="menu-label">منسوبو المدرسة</span></button>
+      <button type="button" class="admin-menu-item" data-section="services" title="خدمات المدرسة"><span class="menu-icon" aria-hidden="true">◇</span><span class="menu-label">خدمات المدرسة</span></button>
+    </nav>
+    <div class="sidebar-footer">Cloudflare + Supabase · صلاحيات مستقلة</div>
+  </aside>
+  <main class="admin-content" id="school-content">
+    <div id="message" class="alert" role="alert" aria-live="polite" hidden></div>
+    <div class="school-context">
+      <label for="school-picker">المدرسة الحالية</label>
+      <select id="school-picker" aria-label="اختر المدرسة الحالية"></select>
+      <span id="membership-badge" class="status-pill"></span>
+    </div>
+    <section id="section-overview" class="admin-section" aria-labelledby="overview-heading">
+      <div class="section-heading"><div><span class="eyebrow">نظرة عامة</span><h1 id="overview-heading">لوحة المدرسة</h1><p>مساحة عمل مرتبطة بدورك في المدرسة المختارة.</p></div></div>
+      <div class="admin-stats">
+        <article class="admin-stat"><span>المدارس المتاحة</span><strong id="stat-schools">—</strong><small>حسب عضويات الحساب</small></article>
+        <article class="admin-stat"><span>صلاحية الحساب</span><strong id="stat-role" class="school-role-stat">—</strong><small>للمدرسة الحالية</small></article>
+        <article class="admin-stat"><span>العمل الحالي</span><strong id="stat-job" class="school-role-stat">—</strong><small>حسب عضويتك المسجلة</small></article>
+        <article class="admin-stat"><span>حالة الاتصال</span><strong id="stat-connection" class="admin-connect-status">—</strong><small>Supabase</small></article>
+      </div>
+      <div class="admin-card"><h2 id="current-school-title">المدرسة الحالية</h2><p id="current-school-description">تُعرض بيانات المدرسة بعد التحقق من جلسة الحساب.</p></div>
+    </section>
+    <section id="section-membership" class="admin-section" hidden aria-labelledby="membership-heading">
+      <div class="section-heading"><div><span class="eyebrow">العضويات</span><h1 id="membership-heading">مدارسي وصلاحياتي</h1><p>المدارس المصرح بها لحسابك، دون عرض مدارس أخرى.</p></div></div>
+      <div class="admin-card"><div id="membership-list" class="admin-mini-list"></div></div>
+    </section>
+    <section id="section-members" class="admin-section" hidden aria-labelledby="members-heading">
+      <div class="section-heading"><div><span class="eyebrow">مدير المدرسة</span><h1 id="members-heading">منسوبو المدرسة</h1><p>عرض عضويات المدرسة المختارة وفق صلاحية مدير المدرسة وقواعد RLS.</p></div><button id="refresh-members" type="button" class="button">تحديث</button></div>
+      <div class="admin-card"><div class="table-scroll"><table class="admin-table"><thead><tr><th>المستخدم</th><th>الصلاحية</th><th>العمل الحالي</th><th>حالة العضوية</th></tr></thead><tbody id="members-body"></tbody></table></div></div>
+    </section>
+    <section id="section-services" class="admin-section" hidden aria-labelledby="services-heading">
+      <div class="section-heading"><div><span class="eyebrow">الخدمات التعليمية</span><h1 id="services-heading">خدمات المدرسة</h1></div></div>
+      <div class="admin-card"><h2>الخدمات المخصصة لدورك</h2><p>يُحدد Supabase صلاحيات الوظائف المدرسية. ستُفعَّل عمليات ملفات الإنجاز والشواهد والتقييم من واجهات مستقلة بعد استكمال اختبارات الكتابة والعزل بين المدارس.</p><div id="service-list" class="school-service-grid"></div></div>
+    </section>
+  </main>
+</div>
 </body></html>
