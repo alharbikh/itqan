@@ -224,7 +224,7 @@ async function api(request, env, pathname) {
         rpc = 'itqan_admin_set_user_status';
         params = { p_user: body.user_id, p_status: body.status };
         keys = ['action','user_id','status'];
-        if (!uuid(body.user_id) || !['active','inactive'].includes(body.status))
+        if (!uuid(body.user_id) || !['active','disabled'].includes(body.status))
           return json({ error: 'Invalid user status' }, 400, current.cookies);
         break;
       case 'user.role':
