@@ -311,6 +311,24 @@ async function api(request, env, pathname) {
     }
     return json({ error: 'Method not allowed' }, 405, current.cookies);
   }
+  if(pathname==='/api/framework-details' && request.method==='GET'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const id=new URL(request.url).searchParams.get('framework_id');
+    if(!id||!/^[0-9a-f-]{36}$/i.test(id))return json({error:'Invalid framework'},400,current.cookies);
+    const q=encodeURIComponent(id);
+    const [rows,texts,rubrics]=await Promise.all([
+      backend(env,'/rest/v1/evaluation_framework_criteria?select=framework_id,job_title_id,criterion_id,weight&framework_id=eq.'+q,'GET',undefined,current.token),
+      backend(env,'/rest/v1/evaluation_criterion_interpretations?select=framework_id,job_title_id,criterion_id,title_ar,interpretation,source_page&framework_id=eq.'+q,'GET',undefined,current.token),
+      backend(env,'/rest/v1/criterion_rating_descriptors?select=framework_id,job_title_id,criterion_id,score_level,descriptor&framework_id=eq.'+q,'GET',undefined,current.token)
+    ]);
+    if(!rows.ok||!texts.ok||!rubrics.ok)return json({error:'Unable to load framework details'},502,current.cookies);
+    const key=r=>r.job_title_id+':'+r.criterion_id;
+    const labels=new Map((texts.data||[]).map(x=>[key(x),x]));
+    const criteria=(rows.data||[]).map(x=>({...x,...(labels.get(key(x))||{}),
+      descriptors:(rubrics.data||[]).filter(d=>key(d)===key(x))}));
+    return json({criteria},200,current.cookies);
+  }
   if(pathname==='/api/catalog' && request.method==='GET'){
     const current=await session(request,env);
     if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
@@ -672,12 +690,13 @@ export default {
         return json({error:'Not found'},404);
       }
       if (pathname.startsWith(API_PREFIX)) return await api(request, env, pathname);
-      if (pathname === '/admin.html' || pathname === '/school.html') {
+      if (pathname === '/admin.html' || pathname === '/school.html' ||
+          pathname === '/frameworks.html' || pathname === '/performance.html' || pathname === '/link.html') {
         const current = await session(request, env);
         if (!current.user) return redirect('/login.html', current.cookies);
-        if (pathname === '/admin.html' && current.user.role !== 'site_admin')
+        if ((pathname === '/admin.html' || pathname === '/frameworks.html') && current.user.role !== 'site_admin')
           return json({ error: 'Forbidden' }, 403, current.cookies);
-        if (pathname === '/school.html' && current.user.role !== 'site_admin' &&
+        if ((pathname === '/school.html' || pathname === '/performance.html') && current.user.role !== 'site_admin' &&
             current.user.schoolMemberships.length === 0)
           return json({ error: 'Membership required' }, 403, current.cookies);
         const page = secureAsset(await env.ASSETS.fetch(request), true);
