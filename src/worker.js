@@ -531,6 +531,20 @@ async function api(request, env, pathname) {
       const r=await backend(env,p,'GET',undefined,current.token);
       return r.ok?json({feedback:r.data},200,current.cookies):json({error:'Unable to read feedback'},502,current.cookies);
     }
+    if(pathname==='/api/school/midyear-feedback'&&request.method==='PATCH'){
+      const b=await input(request);
+      if(!b||!uuid(b.school_id)||!uuid(b.feedback_id)||b.action!=='publish'||
+        !current.user.schoolMemberships.some(m=>m.school_id===b.school_id&&m.access_role==='school_principal'))
+        return json({error:'Forbidden'},403,current.cookies);
+      const path='/rest/v1/midyear_feedback?id=eq.'+encodeURIComponent(b.feedback_id)+
+        '&school_id=eq.'+encodeURIComponent(b.school_id)+
+        '&reviewer_user_id=eq.'+encodeURIComponent(current.user.id)+'&select=id,status';
+      const r=await backend(env,path,'PATCH',{status:'published',published_at:new Date().toISOString()},
+        current.token,{Prefer:'return=representation'});
+      if(!r.ok)return json({error:'Unable to publish feedback'},422,current.cookies);
+      if(!Array.isArray(r.data)||!r.data.length)return json({error:'Draft not found'},404,current.cookies);
+      return json({ok:true},200,current.cookies);
+    }
     if(request.method!=='POST')return json({error:'Method not allowed'},405,current.cookies);
     const b=await input(request);
     if(!b)return json({error:'Invalid review'},400,current.cookies);
