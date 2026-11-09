@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#075b64">
+<title>دورة الأداء والشواهد | إتقان سمارت برو</title>
+<link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/performance.css">
+<script src="/performance.js" defer></script>
+</head><body>
+<header><div class="top"><a class="brand" href="/school.html"><span class="logo">إ</span><span>إتقان سمارت برو</span></a>
+<nav aria-label="الانتقال"><a href="/school.html">لوحة المدرسة</a><a href="/link.html">طلبات الارتباط</a></nav></div></header>
+<main class="perf-wrap">
+  <div class="perf-head"><div><span class="eyebrow">المساحة المدرسية</span><h1>الأداء الوظيفي والشواهد</h1>
+  <p>تُحمّل البيانات وفق حسابك والمدرسة المصرح بها. لا توجد بيانات افتراضية.</p></div><button id="refresh" type="button">تحديث</button></div>
+  <div id="message" class="alert" role="status" aria-live="polite" hidden></div>
+  <div class="perf-toolbar">
+   <label>المدرسة<select id="school"><option value="">جارٍ التحميل</option></select></label>
+   <label>العام الدراسي<select id="year"><option value="">اختر العام</option></select></label>
+   <span id="role" class="perf-tag">التحقق من الدور</span>
+  </div>
+  <section class="perf-section">
+   <h2>المعايير الرسمية</h2><p>تفسير العنصر وسلم التقدير والأوزان يُعرضان وفق الإصدار المعتمد لكل وظيفة.</p>
+   <div id="framework-list" class="perf-list"></div>
+   <form id="framework-ack"><label>إقرار الاطلاع على الإطار المنشور<select id="framework" required><option value="">اختر الإطار</option></select></label>
+    <button type="submit">إقرار الاطلاع</button></form>
+  </section>
+  <section class="perf-section">
+   <h2>مكتبة شواهدي الشخصية</h2><p>يمكن حفظ شاهد دون معيار، وربطه لاحقًا بمعيار أو أكثر. هذه مكتبة بيانات وروابط؛ رفع المرفقات الفعلية سيُفعّل بعد إعداد التخزين الآمن.</p>
+   <form id="evidence-form" class="perf-grid">
+    <label>اسم الشاهد<input id="evidence-title" maxlength="250" required></label>
+    <label>رابط إلكتروني اختياري<input id="evidence-url" type="url" placeholder="https://"></label>
+    <label class="perf-wide">الوصف<textarea id="evidence-description" rows="3" maxlength="4000"></textarea></label>
+    <div><button type="submit">حفظ شاهد مستقل</button></div>
+   </form>
+   <div class="perf-grid perf-slim"><label>الشاهد<select id="link-evidence"><option value="">اختر الشاهد</option></select></label>
+    <label>المعيار<select id="link-criterion"><option value="">اختر المعيار</option></select></label>
+    <div><button id="link-save" type="button">ربط الشاهد بالمعيار</button></div></div>
+   <div id="evidence-list" class="perf-list"></div>
+  </section>
+  <section class="perf-section">
+   <h2>المراجعة النصفية الوصفية</h2><p>تغذية راجعة لتحسين الأداء، دون درجة رقمية تدخل في التقييم النهائي.</p>
+   <div id="midyear-list" class="perf-list"></div>
+  </section>
+  <section class="perf-section">
+   <h2>جدول مراحل الأداء</h2><div id="stage-list" class="perf-list"></div>
+  </section>
+  <section class="perf-section principal-panel" hidden>
+   <h2>إدارة ملفات الموظفين</h2>
+   <p>يبدأ الربط بإنشاء الملف الوظيفي في المدرسة، ثم يطلب صاحب الحساب الربط ويعتمده مدير المدرسة بعد التحقق من هويته.</p>
+   <form id="personnel-form" class="perf-grid">
+     <label>اسم الموظف<input id="personnel-name" required minlength="2" maxlength="200"></label>
+     <label>رقم الهوية (اختياري)<input id="personnel-national" pattern="[0-9]{10}" maxlength="10" inputmode="numeric"></label>
+     <label>المسمى الوظيفي<select id="personnel-job"><option value="">غير محدد</option></select></label>
+     <div><button type="submit">إنشاء ملف وظيفي</button></div>
+   </form>
+   <div id="personnel-created" class="perf-note" hidden></div>
+   <h3>ملفات منسوبي المدرسة</h3><div id="personnel-list" class="perf-list"></div>
+   <h3>طلبات الربط الواردة</h3><div id="link-request-list" class="perf-list"></div>
+   <h3>فك ارتباط موظف</h3>
+   <form id="unlink-form" class="perf-grid">
+     <label>معرف حساب الموظف<input id="unlink-user" required></label>
+     <label>سبب فك الارتباط<input id="unlink-reason" minlength="3" maxlength="500" required></label>
+     <div><button type="submit">إنهاء الارتباط وتوثيقه</button></div>
+   </form>
+  </section>
+  <section class="perf-section principal-panel" hidden>
+   <h2>مواعيد المدرسة</h2><p>تُضبط داخل الحدود الزمنية التي يحددها مدير الموقع، مع تسجيل سبب أي تغيير.</p>
+   <form id="stage-form" class="perf-grid">
+     <label>المرحلة<select id="stage-kind"><option value="planning">التخطيط</option><option value="midyear">المراجعة النصفية</option><option value="final">التقييم الختامي</option></select></label>
+     <label>من<input id="stage-start" type="date" required></label>
+     <label>إلى<input id="stage-end" type="date" required></label>
+     <label>سبب التعديل<input id="stage-reason" required minlength="3" maxlength="500"></label>
+     <div><button type="submit">حفظ مواعيد المدرسة</button></div>
+   </form>
+  </section>
+  <section class="perf-section principal-panel" hidden>
+   <h2>إضافة مراجعة نصفية</h2>
+   <form id="midyear-form" class="perf-grid">
+     <label>معرف حساب الموظف<input id="midyear-subject" required></label>
+     <label>جوانب القوة<textarea id="midyear-strengths" rows="3" required></textarea></label>
+     <label>فرص التحسين<textarea id="midyear-improvements" rows="3" required></textarea></label>
+     <label>إجراءات التطوير<textarea id="midyear-actions" rows="3" required></textarea></label>
+     <div><button type="submit">حفظ مسودة المراجعة</button></div>
+   </form>
+   <p class="perf-note">المراجعة المحفوظة مسودة ولا تُنشر للموظف تلقائيًا. نشرها واعتماد إجراءاتها يتطلب مسار مراجعة مخولًا.</p>
+  </section>
+  <section class="perf-section principal-panel" hidden>
+   <h2>التفويض المحدد للمراجعة</h2>
+   <form id="delegate-form" class="perf-grid">
+    <label>معرف حساب المفوض<input id="delegate-user" required></label>
+    <label>معرف الموظف محل المراجعة<input id="delegate-subject" required></label>
+    <label>نوع التفويض<select id="delegate-scope"><option value="evidence_review">مراجعة الشواهد</option><option value="performance_scoring">تقييم الأداء</option></select></label>
+    <label>تاريخ انتهاء التفويض<input type="datetime-local" id="delegate-expiry" required></label>
+    <div><button type="submit">إنشاء التفويض</button></div>
+   </form>
+   <p class="perf-note">إنشاء التفويض لا يمنح صلاحية اعتماد نهائي، ولا يسمح بمراجعة الشخص لنفسه.</p>
+  </section>
+</main>
+<footer>إتقان سمارت برو — مخرجات تقييم مساندة، وليست بديلًا عن الاعتماد الرسمي.</footer>
+</body></html>
