@@ -186,7 +186,7 @@ function changeSchoolStatus(school){
     (status==='inactive'?'تعطيل':'تفعيل')+' المدرسة «'+school.name+'»؟');
 }
 function changeUserStatus(user){
-  const status=user.status==='active'?'inactive':'active';
+  const status=user.status==='active'?'disabled':'active';
   return adminAction('user.status',{user_id:user.id,status},
     (status==='inactive'?'إيقاف':'تفعيل')+' حساب «'+(user.full_name||user.id)+'»؟');
 }
