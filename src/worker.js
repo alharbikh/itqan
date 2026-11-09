@@ -78,7 +78,7 @@ async function verifiedUser(env, accessToken) {
   const [profile, roles, memberships] = await Promise.all([
     backend(env, '/rest/v1/users?select=id,full_name,status&id=eq.' + id, 'GET', undefined, accessToken),
     backend(env, '/rest/v1/user_roles?select=role_code&user_id=eq.' + id, 'GET', undefined, accessToken),
-    backend(env, '/rest/v1/school_memberships?select=school_id,access_role,status&user_id=eq.' + id,
+    backend(env, '/rest/v1/school_memberships?select=school_id,access_role,job_role,status&user_id=eq.' + id,
       'GET', undefined, accessToken),
   ]);
   if (![profile, roles, memberships].every(x => x.ok)) return null;
@@ -89,7 +89,7 @@ async function verifiedUser(env, accessToken) {
     name: user.full_name || auth.data.email || 'مستخدم',
     role: Array.isArray(roles.data) && roles.data.some(x => x.role_code === 'site_admin') ? 'site_admin' : 'member',
     schoolMemberships: (Array.isArray(memberships.data) ? memberships.data : [])
-      .filter(x => x.status === 'active').map(x => ({ school_id: x.school_id, access_role: x.access_role })),
+      .filter(x => x.status === 'active').map(x => ({ school_id: x.school_id, access_role: x.access_role, job_role: x.job_role })),
   };
 }
 async function session(request, env) {
@@ -310,6 +310,33 @@ async function api(request, env, pathname) {
       return json({ school: result.data[0] }, 200, current.cookies);
     }
     return json({ error: 'Method not allowed' }, 405, current.cookies);
+  }
+  if (pathname === '/api/school/members' && request.method === 'GET') {
+    const current=await session(request,env);
+    if(!current.user) return json({error:'Unauthorized'},401,current.cookies);
+    const schoolId=new URL(request.url).searchParams.get('school_id');
+    if (!schoolId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(schoolId))
+      return json({error:'Invalid school'},400,current.cookies);
+    const canView=current.user.role==='site_admin' ||
+      current.user.schoolMemberships.some(m=>m.school_id===schoolId && m.access_role==='school_principal');
+    if(!canView)return json({error:'Forbidden'},403,current.cookies);
+    const memberships=await backend(env,
+      '/rest/v1/school_memberships?select=user_id,access_role,job_role,status&school_id=eq.'+schoolId+
+      '&order=created_at.desc&limit=200','GET',undefined,current.token);
+    if(!memberships.ok)return json({error:'Unable to read members'},502,current.cookies);
+    const members=Array.isArray(memberships.data)?memberships.data:[];
+    const ids=[...new Set(members.map(m=>m.user_id).filter(x=>typeof x==='string'))];
+    if(!ids.length)return json({members:[]},200,current.cookies);
+    const profiles=await backend(env,
+      '/rest/v1/users?select=id,full_name,status&id=in.('+ids.map(encodeURIComponent).join(',')+')',
+      'GET',undefined,current.token);
+    if(!profiles.ok)return json({error:'Unable to read member profiles'},502,current.cookies);
+    const names=new Map((Array.isArray(profiles.data)?profiles.data:[]).map(p=>[p.id,p]));
+    return json({members:members.map(m=>({
+      user_id:m.user_id,full_name:names.get(m.user_id)?.full_name||null,
+      user_status:names.get(m.user_id)?.status||null,
+      access_role:m.access_role,job_role:m.job_role,status:m.status,
+    }))},200,current.cookies);
   }
   if ((pathname === '/api/session' || pathname === '/api/schools') && request.method === 'GET') {
     const current = await session(request, env);
