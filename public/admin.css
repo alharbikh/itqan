@@ -231,3 +231,29 @@
     padding:8px 10px;
   }
 }
+
+/* Site management actions and admin-only resources */
+.admin-row-actions{white-space:nowrap;min-width:185px}
+.admin-row-actions .button{margin-inline-end:6px;margin-block:2px}
+.admin-danger{border-color:#e7bbbd!important;color:#9b3037!important;background:#fff8f7!important}
+.admin-danger:hover{background:#fff0ee!important}
+.admin-resource-links{display:grid;gap:10px}
+.admin-resource-links a{
+  display:block;padding:14px 18px;border-radius:12px;
+  background:#f3f9f8;border:1px solid #dbeae8;
+  color:#075b64;font-weight:800;overflow-wrap:anywhere
+}
+.admin-resource-links a:hover{background:#e7f4ef}
+.admin-membership-form{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;margin-bottom:16px;align-items:end
+}
+.admin-membership-form label{min-width:0;font-size:.85rem}
+.admin-membership-form select{
+  min-width:0;width:100%;min-height:46px;
+  border:1px solid #cbd9de;border-radius:12px;
+  background:#fff;color:#18334a;padding:8px 12px;font:inherit
+}
+.admin-membership-form .primary{min-height:46px}
+@media(max-width:980px){.admin-membership-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:580px){.admin-membership-form{grid-template-columns:1fr;gap:11px}}
