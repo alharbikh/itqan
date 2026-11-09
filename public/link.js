@@ -15,6 +15,46 @@ async function refresh(){
   target.append(div);
  }
  if(!target.children.length){const d=document.createElement('div');d.className='perf-note';d.textContent='لا توجد طلبات سابقة.';target.append(d);}
+ const exceptions=await api('/api/school/review-exceptions');
+ const list=$('exceptions');list.replaceChildren();
+ for(const x of exceptions.exceptions||[]){
+  const box=document.createElement('div');box.className='perf-item';
+  for(const value of ['التقييم: '+x.review_id,'الحالة: '+x.status,'السبب: '+x.reason,
+   x.expires_at?'ينتهي: '+new Date(x.expires_at).toLocaleString('ar-SA'):'بانتظار القرار']){
+   const item=document.createElement('span');item.textContent=value;box.append(item);}
+  if(x.status==='approved'){
+   const button=document.createElement('button');button.type='button';
+   button.textContent='عرض معايير الاستكمال';button.onclick=async()=>{
+    try{const details=await api('/api/school/exception-criteria?request_id='+encodeURIComponent(x.id));
+    const fields=document.createElement('div');fields.className='perf-list';
+    for(const criterion of details.criteria||[]){
+     const row=document.createElement('div');row.className='perf-item';
+     const text=document.createElement('span');
+     text.textContent=criterion.title_ar+' — الوزن '+criterion.weight+'% — '+(criterion.interpretation||'');
+     const select=document.createElement('select');
+     for(let k=1;k<=5;k++){const opt=document.createElement('option');opt.value=String(k);
+      opt.textContent='المستوى '+k;select.append(opt);}
+     if(criterion.score_level)select.value=String(criterion.score_level);
+     const note=document.createElement('input');note.placeholder='ملاحظة التقدير';note.maxLength=2000;
+     const save=document.createElement('button');save.type='button';save.textContent='حفظ تقدير العنصر';
+     save.onclick=async()=>{try{await api('/api/school/review-exceptions','POST',
+      {action:'score',request_id:x.id,criterion_id:criterion.criterion_id,score_level:Number(select.value),
+       note:note.value});notice('حُفظ التقدير','success');}catch(err){notice(err.message,'error');}};
+     row.append(text,select,note,save);fields.append(row);
+    }
+    const submit=document.createElement('button');submit.type='button';submit.textContent='إنهاء الاستكمال وإرسال التقييم';
+    submit.onclick=async()=>{if(!confirm('هل استُكملت جميع الدرجات؟'))return;
+     try{await api('/api/school/review-exceptions','POST',{action:'submit',request_id:x.id});
+      notice('أُرسل التقييم وأُغلق الاستثناء','success');await refresh();}
+     catch(err){notice(err.message,'error');}};
+    fields.append(submit);box.append(fields);
+    }catch(err){notice(err.message,'error');}};
+   box.append(button);
+  }
+  list.append(box);
+ }
+ if(!list.children.length){const e=document.createElement('div');e.className='perf-note';
+  e.textContent='لا توجد استثناءات تقييم مرتبطة بك.';list.append(e);}
  const membership=user.schoolMemberships?.[0];
  $('active-panel').hidden=!membership;
  if(membership){$('active-school').textContent='المدرسة المرتبطة: '+membership.school_id;
@@ -23,6 +63,11 @@ async function refresh(){
 $('request-form').addEventListener('submit',async e=>{e.preventDefault();
  try{await api('/api/school/link-request','POST',{school_employee_id:$('school-employee-id').value.trim()});
  notice('أُرسل الطلب لمدير المدرسة لمراجعة الهوية','success');$('request-form').reset();await refresh();}
+ catch(err){notice(err.message,'error');}});
+$('exception-form').addEventListener('submit',async e=>{e.preventDefault();
+ try{await api('/api/school/review-exceptions','POST',
+  {action:'request',review_id:$('exception-review').value.trim(),reason:$('exception-reason').value.trim()});
+  notice('أُرسل طلب الاستكمال للجهة المخولة','success');$('exception-form').reset();await refresh();}
  catch(err){notice(err.message,'error');}});
 $('unlink-form').addEventListener('submit',async e=>{e.preventDefault();
  if(!confirm('سيُفك ارتباطك بالمدرسة الحالية مع الحفاظ على سجلاتها التاريخية. هل تؤكد؟'))return;
