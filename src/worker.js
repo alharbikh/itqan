@@ -111,12 +111,12 @@ function sameOrigin(request) {
   const origin = request.headers.get('origin');
   return origin === new URL(request.url).origin;
 }
-async function input(request) {
+async function input(request, maxLength = 8192) {
   if (!request.headers.get('content-type')?.startsWith('application/json')) return null;
-  if (Number(request.headers.get('content-length') || 0) > 8192) return null;
+  if (Number(request.headers.get('content-length') || 0) > maxLength) return null;
   try {
     const text = await request.text();
-    return text.length <= 8192 ? JSON.parse(text) : null;
+    return text.length <= maxLength ? JSON.parse(text) : null;
   } catch { return null; }
 }
 
@@ -310,6 +310,180 @@ async function api(request, env, pathname) {
       return json({ school: result.data[0] }, 200, current.cookies);
     }
     return json({ error: 'Method not allowed' }, 405, current.cookies);
+  }
+  // #13: stage / review official frameworks as JSON; only site administrators.
+  if (pathname==='/api/admin/framework-batches' ||
+      pathname==='/api/admin/framework-actions') {
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    if(current.user.role!=='site_admin')return json({error:'Forbidden'},403,current.cookies);
+    if(pathname==='/api/admin/framework-batches' && request.method==='GET'){
+      const data=await backend(env,
+        '/rest/v1/framework_import_batches?select=id,payload,framework_id,status,created_at,reviewed_at,review_note&order=created_at.desc&limit=100',
+        'GET',undefined,current.token);
+      return data.ok?json({batches:data.data},200,current.cookies):json({error:'Unable to read imports'},502,current.cookies);
+    }
+    if(request.method!=='POST')return json({error:'Method not allowed'},405,current.cookies);
+    const body=await input(request,320000);
+    if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'Invalid JSON'},400,current.cookies);
+    let rpc,params;
+    if(pathname==='/api/admin/framework-batches'){
+      if(!body.payload||Object.keys(body).some(k=>k!=='payload'))
+        return json({error:'Invalid framework batch'},400,current.cookies);
+      rpc='itqan_admin_stage_framework';params={p_payload:body.payload};
+    }else{
+      if(typeof body.batch_id!=='string'||!/^[0-9a-f-]{36}$/i.test(body.batch_id))
+        return json({error:'Invalid batch id'},400,current.cookies);
+      switch(body.action){
+        case 'replace':
+          if(!body.payload||Object.keys(body).some(k=>!['action','batch_id','payload'].includes(k)))
+            return json({error:'Invalid replacement'},400,current.cookies);
+          rpc='itqan_admin_replace_framework_draft';
+          params={p_batch:body.batch_id,p_payload:body.payload};break;
+        case 'approve':
+          if(body.note!=null&&(typeof body.note!=='string'||body.note.length>2000))
+            return json({error:'Invalid review'},400,current.cookies);
+          rpc='itqan_admin_approve_framework';
+          params={p_batch:body.batch_id,p_note:body.note||null};break;
+        case 'publish':
+          rpc='itqan_admin_publish_framework';params={p_batch:body.batch_id};break;
+        default:return json({error:'Unknown framework action'},400,current.cookies);
+      }
+    }
+    const result=await backend(env,'/rest/v1/rpc/'+rpc,'POST',params,current.token);
+    if(!result.ok)return json({error:result.data?.code==='42501'?'Forbidden':'Framework validation failed'},
+      result.data?.code==='42501'?403:422,current.cookies);
+    return json({ok:true,result:result.data},200,current.cookies);
+  }
+  // #14: stage window customization and employee framework acknowledgement.
+  if (['/api/admin/stage-window','/api/school/stage-window','/api/school/framework-ack'].includes(pathname)
+       && request.method==='POST') {
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const body=await input(request);
+    if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'Invalid request'},400,current.cookies);
+    const uuid=x=>typeof x==='string'&&/^[0-9a-f-]{36}$/i.test(x);
+    const validDate=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x);
+    const stage=x=>['planning','midyear','final'].includes(x);
+    let rpc,params;
+    if(pathname==='/api/admin/stage-window'){
+      if(current.user.role!=='site_admin')return json({error:'Forbidden'},403,current.cookies);
+      if(!uuid(body.year_id)||!stage(body.stage)||!['starts_on','ends_on','earliest_start','latest_end'].every(k=>validDate(body[k])))
+        return json({error:'Invalid central stage'},400,current.cookies);
+      rpc='itqan_admin_set_stage_default';params={p_year:body.year_id,p_stage:body.stage,p_start:body.starts_on,
+        p_end:body.ends_on,p_earliest:body.earliest_start,p_latest:body.latest_end};
+    }else if(pathname==='/api/school/stage-window'){
+      if(!uuid(body.school_id)||!uuid(body.year_id)||!stage(body.stage)||
+         !validDate(body.starts_on)||!validDate(body.ends_on)||
+         typeof body.reason!=='string'||body.reason.length>500||
+         !current.user.schoolMemberships.some(m=>m.school_id===body.school_id&&m.access_role==='school_principal'))
+        return json({error:'Invalid school stage or permission'},403,current.cookies);
+      rpc='itqan_school_set_stage_dates';params={p_school:body.school_id,p_year:body.year_id,
+        p_stage:body.stage,p_start:body.starts_on,p_end:body.ends_on,p_reason:body.reason};
+    }else{
+      if(!uuid(body.school_id)||!uuid(body.framework_id))return json({error:'Invalid acknowledgement'},400,current.cookies);
+      rpc='itqan_employee_acknowledge_framework';params={p_school:body.school_id,p_framework:body.framework_id};
+    }
+    const result=await backend(env,'/rest/v1/rpc/'+rpc,'POST',params,current.token);
+    if(!result.ok)return json({error:result.data?.code==='42501'?'Forbidden':'Unable to update performance schedule'},result.data?.code==='42501'?403:422,current.cookies);
+    return json({ok:true,result:result.data},200,current.cookies);
+  }
+  // #15: personal evidence can exist without criterion links or a school membership.
+  if(pathname==='/api/evidence/personal'||pathname==='/api/evidence/criterion-link'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const uuid=x=>typeof x==='string'&&/^[0-9a-f-]{36}$/i.test(x);
+    if(pathname==='/api/evidence/personal'&&request.method==='GET'){
+      const r=await backend(env,'/rest/v1/personal_evidence?select=id,title,description,link_url,status,created_at&user_id=eq.'+
+        encodeURIComponent(current.user.id)+'&order=created_at.desc&limit=200','GET',undefined,current.token);
+      return r.ok?json({evidence:r.data},200,current.cookies):json({error:'Unable to read evidence'},502,current.cookies);
+    }
+    const body=await input(request);
+    if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'Invalid evidence request'},400,current.cookies);
+    let url,method,params,extra={};
+    if(pathname==='/api/evidence/personal'&&request.method==='POST'){
+      if(typeof body.title!=='string'||body.title.trim().length<2||body.title.length>250||
+         (body.description!=null&&(typeof body.description!=='string'||body.description.length>4000))||
+         (body.link_url!=null&&(typeof body.link_url!=='string'||body.link_url.length>2000||
+          (body.link_url!==''&&!/^https:\/\//.test(body.link_url)))))
+        return json({error:'Invalid evidence data'},400,current.cookies);
+      url='/rest/v1/personal_evidence?select=id,title,status,created_at';method='POST';
+      params={user_id:current.user.id,title:body.title.trim(),description:body.description||null,
+        link_url:body.link_url||null};
+      extra={Prefer:'return=representation'};
+    }else if(pathname==='/api/evidence/criterion-link'&&['POST','DELETE'].includes(request.method)){
+      if(!uuid(body.evidence_id)||!uuid(body.criterion_id))return json({error:'Invalid evidence link'},400,current.cookies);
+      method=request.method;
+      if(method==='POST'){
+        url='/rest/v1/personal_evidence_criteria';params={evidence_id:body.evidence_id,criterion_id:body.criterion_id};
+      }else{
+        url='/rest/v1/personal_evidence_criteria?evidence_id=eq.'+encodeURIComponent(body.evidence_id)+
+          '&criterion_id=eq.'+encodeURIComponent(body.criterion_id);
+      }
+    }else{return json({error:'Method not allowed'},405,current.cookies);}
+    const r=await backend(env,url,method,params,current.token,extra);
+    if(!r.ok)return json({error:r.status===403?'Forbidden':'Unable to save evidence'},r.status===403?403:422,current.cookies);
+    return json({ok:true,result:r.data},method==='POST'?201:200,current.cookies);
+  }
+  // #15: delegates are scoped to one subject, operation and expiry.
+  if(pathname==='/api/school/review-delegations'&&request.method==='POST'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const b=await input(request),uuid=x=>typeof x==='string'&&/^[0-9a-f-]{36}$/i.test(x);
+    if(!b||!uuid(b.school_id)||!current.user.schoolMemberships.some(m=>
+        m.school_id===b.school_id&&m.access_role==='school_principal'))
+      return json({error:'Forbidden'},403,current.cookies);
+    let rpc,params;
+    if(b.action==='grant'){
+      if(!uuid(b.delegate_user_id)||!uuid(b.subject_user_id)||
+         !['evidence_review','performance_scoring'].includes(b.scope)||
+         typeof b.expires_at!=='string')return json({error:'Invalid delegation'},400,current.cookies);
+      rpc='itqan_school_grant_review_delegation';
+      params={p_school:b.school_id,p_delegate:b.delegate_user_id,p_subject:b.subject_user_id,
+        p_scope:b.scope,p_expiry:b.expires_at};
+    }else if(b.action==='revoke'){
+      if(!uuid(b.delegation_id))return json({error:'Invalid delegation id'},400,current.cookies);
+      rpc='itqan_school_revoke_review_delegation';params={p_delegation:b.delegation_id};
+    }else return json({error:'Unknown delegation action'},400,current.cookies);
+    const r=await backend(env,'/rest/v1/rpc/'+rpc,'POST',params,current.token);
+    return r.ok?json({ok:true,result:r.data},200,current.cookies):
+      json({error:r.data?.code==='42501'?'Forbidden':'Unable to update delegation'},
+        r.data?.code==='42501'?403:422,current.cookies);
+  }
+  // #16: midpoint feedback is descriptive and never writes final evaluation scores.
+  if(pathname==='/api/school/midyear-feedback'||pathname==='/api/school/midyear-ack'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const uuid=x=>typeof x==='string'&&/^[0-9a-f-]{36}$/i.test(x);
+    if(pathname==='/api/school/midyear-feedback'&&request.method==='GET'){
+      const schoolId=new URL(request.url).searchParams.get('school_id');
+      if(!uuid(schoolId))return json({error:'Invalid school'},400,current.cookies);
+      const p='/rest/v1/midyear_feedback?select=id,school_id,academic_year_id,subject_user_id,reviewer_user_id,strengths,improvements,development_actions,employee_comment,status,published_at,acknowledged_at&school_id=eq.'+
+        encodeURIComponent(schoolId)+'&order=created_at.desc&limit=200';
+      const r=await backend(env,p,'GET',undefined,current.token);
+      return r.ok?json({feedback:r.data},200,current.cookies):json({error:'Unable to read feedback'},502,current.cookies);
+    }
+    if(request.method!=='POST')return json({error:'Method not allowed'},405,current.cookies);
+    const b=await input(request);
+    if(!b)return json({error:'Invalid review'},400,current.cookies);
+    if(pathname==='/api/school/midyear-ack'){
+      if(!uuid(b.feedback_id)||(b.comment!=null&&(typeof b.comment!=='string'||b.comment.length>2000)))
+        return json({error:'Invalid acknowledgement'},400,current.cookies);
+      const r=await backend(env,'/rest/v1/rpc/itqan_employee_ack_midyear','POST',
+        {p_feedback:b.feedback_id,p_comment:b.comment||null},current.token);
+      return r.ok?json({ok:true},200,current.cookies):json({error:'Unable to acknowledge'},422,current.cookies);
+    }
+    if(!uuid(b.school_id)||!uuid(b.year_id)||!uuid(b.subject_user_id)||
+       !current.user.schoolMemberships.some(m=>m.school_id===b.school_id&&m.access_role==='school_principal')||
+       b.subject_user_id===current.user.id||
+       ['strengths','improvements','development_actions'].some(k=>typeof b[k]!=='string'||b[k].length>5000))
+      return json({error:'Invalid review or permission'},403,current.cookies);
+    const r=await backend(env,'/rest/v1/midyear_feedback?select=id,status,created_at','POST',
+      {school_id:b.school_id,academic_year_id:b.year_id,subject_user_id:b.subject_user_id,
+       reviewer_user_id:current.user.id,strengths:b.strengths,improvements:b.improvements,
+       development_actions:b.development_actions},current.token,{Prefer:'return=representation'});
+    return r.ok?json({ok:true,feedback:r.data?.[0]},201,current.cookies):
+       json({error:'Unable to save midpoint feedback'},422,current.cookies);
   }
   // Personnel linking operations use authenticated, auditable PostgreSQL RPCs.
   if (['/api/school/personnel','/api/school/link-request','/api/school/link-decision',
