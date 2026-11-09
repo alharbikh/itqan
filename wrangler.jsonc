@@ -13,5 +13,10 @@
   "vars": {
     "SUPABASE_URL": "https://vyntaycjdspjfkbwnvbh.supabase.co",
     "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_XNxo97lyKtrqLxjCLSdiew_uCLiZnlp"
+  },
+  "previews": {
+    "vars": {
+      "PREVIEW_ONLY": "true"
+    }
   }
 }
