@@ -23,7 +23,12 @@ function mockSupabase(role='site_admin') {
     if(p==='/auth/v1/user')return Response.json({id:userId,email:'admin@example.invalid'});
     if(p==='/rest/v1/users')return Response.json([{id:userId,full_name:'Owner',status:'active',created_at:'2026-11-09T00:00:00Z'}]);
     if(p==='/rest/v1/user_roles')return Response.json(role==='site_admin'?[{role_code:'site_admin'}]:[]);
-    if(p==='/rest/v1/school_memberships')return Response.json([]);
+    if(p==='/rest/v1/school_memberships'){
+      const member=role==='principal'||role==='employee' ?
+        [{school_id:schoolId,access_role:role==='principal'?'school_principal':'employee',
+          job_role:role==='principal'?'principal':'teacher',user_id,status:'active'}] : [];
+      return Response.json(member);
+    }
     if (p.startsWith('/rest/v1/rpc/')) {
       writes.push({method:init.method,body:init.body,headers:init.headers,url:String(url)});
       return Response.json(true);
@@ -228,4 +233,40 @@ test('account suspension uses the existing disabled enum, not membership inactiv
     }),env);
     assert.equal(invalid.status,400);
   } finally {m.close();}
+});
+
+test('school principal may read member directory for their own school',async()=>{
+  const m=mockSupabase('principal');
+  try{
+    const r=await worker.fetch(request('/api/school/members?school_id='+schoolId),env);
+    assert.equal(r.status,200);
+    const data=await r.json();
+    assert.equal(data.members.length,1);
+    assert.equal(data.members[0].full_name,'Owner');
+    assert.equal(data.members[0].access_role,'school_principal');
+  }finally{m.close();}
+});
+test('employee cannot read school member directory even if they belong to it',async()=>{
+  const m=mockSupabase('employee');
+  try{
+    const r=await worker.fetch(request('/api/school/members?school_id='+schoolId),env);
+    assert.equal(r.status,403);
+  }finally{m.close();}
+});
+test('principal cannot read directory of a different school',async()=>{
+  const m=mockSupabase('principal');
+  try{
+    const unrelated='7cf9750c-ed10-479f-bf48-0cb84332ece8';
+    const r=await worker.fetch(request('/api/school/members?school_id='+unrelated),env);
+    assert.equal(r.status,403);
+  }finally{m.close();}
+});
+test('school member directory denies anonymous and invalid identifiers',async()=>{
+  const m=mockSupabase('principal');
+  try{
+    const anon=await worker.fetch(new Request(base+'/api/school/members?school_id='+schoolId),env);
+    assert.equal(anon.status,401);
+    const invalid=await worker.fetch(request('/api/school/members?school_id=not-a-uuid'),env);
+    assert.equal(invalid.status,400);
+  }finally{m.close();}
 });
