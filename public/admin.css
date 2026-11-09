@@ -59,3 +59,6 @@
 .school-form{padding:19px}.field-grid{grid-template-columns:1fr}.wide-field{grid-column:auto}
 }
 @media(max-width:380px){.admin-stats{grid-template-columns:1fr 1fr}.admin-brand{max-width:85px}.admin-logout{font-size:.72rem}}
+
+.preview-banner{padding:10px 22px;background:#e7f4f4;color:#075b64;font-size:.83rem;font-weight:850;text-align:center;border-bottom:1px solid #bfe3df}
+@media(max-width:760px){.preview-banner{padding:9px 12px;font-size:.72rem}}
