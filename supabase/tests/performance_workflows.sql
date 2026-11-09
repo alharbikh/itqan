@@ -109,9 +109,9 @@ begin
   user_id='73333333-3333-4333-8333-333333333333' and
   school_id='74444444-4444-4444-8444-444444444444' and revoked_at is null) then
   raise exception 'Personal evidence remains shared after unlink';end if;
-end $;
+end $$;
 set local role authenticated;
-do $
+do $$
 declare review_id uuid;request_id uuid;criterion_one uuid;criterion_two uuid;result numeric;
 begin
  perform set_config('request.jwt.claim.sub','72222222-2222-4222-8222-222222222222',true);
@@ -136,5 +136,5 @@ begin
  if not exists(select 1 from public.performance_reviews where id=review_id
    and status='submitted' and final_score_100=94) then
   raise exception 'Exceptional submitted review incorrect';end if;
-end $;
+end $$;
 rollback;
