@@ -658,6 +658,53 @@ async function api(request, env, pathname) {
       json({error:r.data?.code==='42501'?'Forbidden':'Review criteria incomplete or invalid'},
         r.data?.code==='42501'?403:422,current.cookies);
   }
+  // #16: independently approved, time-boxed continuation of frozen evaluations.
+  if(pathname==='/api/school/review-exceptions'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const uuid=x=>typeof x==='string'&&/^[0-9a-f-]{36}$/i.test(x);
+    if(request.method==='GET'){
+      const schoolId=new URL(request.url).searchParams.get('school_id');
+      if(schoolId&&!current.user.schoolMemberships.some(m=>m.school_id===schoolId&&m.access_role==='school_principal'))
+        return json({error:'Forbidden'},403,current.cookies);
+      const url='/rest/v1/review_exception_requests?select=id,review_id,school_id,requested_by,approved_by,status,reason,starts_at,expires_at,created_at&'+
+        (schoolId?'school_id=eq.'+encodeURIComponent(schoolId):
+          'requested_by=eq.'+encodeURIComponent(current.user.id))+'&order=created_at.desc&limit=100';
+      const result=await backend(env,url,'GET',undefined,current.token);
+      return result.ok?json({exceptions:result.data},200,current.cookies):
+        json({error:'Unable to read exceptions'},502,current.cookies);
+    }
+    if(request.method!=='POST')return json({error:'Method not allowed'},405,current.cookies);
+    const b=await input(request);
+    if(!b||typeof b!=='object'||Array.isArray(b))return json({error:'Invalid exception'},400,current.cookies);
+    let rpc,params;
+    if(b.action==='request'){
+      if(!uuid(b.review_id)||typeof b.reason!=='string'||b.reason.length<10||b.reason.length>1000)
+        return json({error:'Invalid exception request'},400,current.cookies);
+      rpc='itqan_school_request_review_exception';
+      params={p_review:b.review_id,p_reason:b.reason};
+    }else if(b.action==='decide'){
+      if(!uuid(b.request_id)||typeof b.approve!=='boolean'||
+       (b.approve&&typeof b.expires_at!=='string'))
+        return json({error:'Invalid exception approval'},400,current.cookies);
+      rpc='itqan_school_decide_review_exception';
+      params={p_request:b.request_id,p_approve:b.approve,p_expiry:b.approve?b.expires_at:null};
+    }else if(b.action==='score'){
+      if(!uuid(b.request_id)||!uuid(b.criterion_id)||!Number.isInteger(b.score_level)||
+        b.score_level<1||b.score_level>5||
+        (b.note!=null&&(typeof b.note!=='string'||b.note.length>2000)))
+        return json({error:'Invalid exceptional score'},400,current.cookies);
+      rpc='itqan_school_exception_score';
+      params={p_request:b.request_id,p_criterion:b.criterion_id,p_level:b.score_level,p_note:b.note||null};
+    }else if(b.action==='submit'){
+      if(!uuid(b.request_id))return json({error:'Invalid exception id'},400,current.cookies);
+      rpc='itqan_school_exception_submit';params={p_request:b.request_id};
+    }else return json({error:'Unknown exception action'},400,current.cookies);
+    const result=await backend(env,'/rest/v1/rpc/'+rpc,'POST',params,current.token);
+    return result.ok?json({ok:true,result:result.data},200,current.cookies):
+      json({error:result.data?.code==='42501'?'Forbidden':'Exception incomplete or invalid'},
+        result.data?.code==='42501'?403:422,current.cookies);
+  }
   // Personnel linking operations use authenticated, auditable PostgreSQL RPCs.
   if (['/api/school/personnel','/api/school/link-request','/api/school/link-decision',
        '/api/school/unlink'].includes(pathname) && request.method === 'POST') {
