@@ -1,0 +1,47 @@
+<!doctype html><html lang="ar" dir="rtl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#075b64"><title>إدارة المعايير الرسمية | إتقان سمارت برو</title>
+<link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/performance.css">
+<script src="/frameworks.js" defer></script></head><body>
+<header><div class="top"><a class="brand" href="/admin.html"><span class="logo">إ</span><span>إتقان سمارت برو</span></a>
+<nav><a href="/admin.html">مركز الإدارة</a><a href="/school.html">مساحة المدرسة</a></nav></div></header>
+<main class="perf-wrap"><div class="perf-head"><div><span class="eyebrow">مدير الموقع فقط</span>
+<h1>المعايير والأطر الوظيفية</h1><p>استيراد بيانات JSON المنظمة، مراجعتها وتعديلها ثم اعتمادها ونشرها في مرحلتين منفصلتين.</p></div>
+<button id="refresh" type="button">تحديث</button></div>
+<div id="message" class="alert" role="status" aria-live="polite" hidden></div>
+<section class="perf-section"><h2>إعداد العام الدراسي</h2><p>العام الدراسي يشكل مرجع مواعيد الأداء ولا ينشأ تلقائيًا من بيانات افتراضية.</p>
+<form id="year-form" class="perf-grid">
+ <label>اسم العام الدراسي<input id="year-label" required maxlength="100" placeholder="1448–1449 هـ"></label>
+ <label>تاريخ البداية<input id="year-start" type="date" required></label>
+ <label>تاريخ النهاية<input id="year-end" type="date" required></label>
+ <label>الحالة<select id="year-current"><option value="true">العام الحالي</option><option value="false">عام غير حالي</option></select></label>
+ <div><button type="submit">إضافة العام</button></div>
+</form><div id="years-list" class="perf-list"></div></section>
+<section class="perf-section"><h2>استيراد إطار معايير بصيغة JSON</h2>
+<p>يُحفظ أولًا كمسودة. لا يُنشر أي معيار للمدارس دون مراجعة واعتماد صريح من مدير الموقع.</p>
+<div class="perf-grid">
+ <label>تحميل ملف JSON محلي<input type="file" id="json-file" accept=".json,application/json"></label>
+ <label>المسودة قيد التعديل<input id="draft-id" readonly placeholder="مسودة جديدة"></label>
+</div>
+<label>محتوى JSON<textarea id="json-text" rows="15" spellcheck="false" placeholder='{"code":"TEACHER-2027","title_ar":"معايير المعلم","version_no":1,"jobs":[{"code":"teacher","title_ar":"معلم","criteria":[{"code":"T01","title_ar":"المعيار الأول","weight":100}]}]}'></textarea></label>
+<div class="perf-grid perf-slim">
+ <button id="preview" type="button">معاينة والتحقق من المجاميع</button>
+ <button id="stage" type="button">حفظ مسودة جديدة</button>
+ <button id="replace" type="button">حفظ تعديل المسودة</button>
+</div>
+<div id="preview-result" class="perf-list" role="status"></div></section>
+<section class="perf-section"><h2>المسودات والمراجعات</h2>
+<p>الاعتماد يضيف إطارًا داخليًا بحالة مسودة، والنشر إجراء مستقل لاحق. لا تُغيّر الإصدارات الرسمية المنشورة.</p>
+<div id="batches" class="perf-list"></div></section>
+<section class="perf-section"><h2>المواعيد المركزية لدورة الأداء</h2>
+<form id="stage-form" class="perf-grid">
+ <label>العام الدراسي<select id="stage-year" required></select></label>
+ <label>المرحلة<select id="stage-name"><option value="planning">التخطيط</option><option value="midyear">المراجعة النصفية</option><option value="final">التقييم الختامي</option></select></label>
+ <label>البداية الافتراضية<input id="stage-start" type="date" required></label>
+ <label>النهاية الافتراضية<input id="stage-end" type="date" required></label>
+ <label>أول بداية مسموحة<input id="stage-min" type="date" required></label>
+ <label>آخر نهاية مسموحة<input id="stage-max" type="date" required></label>
+ <div><button type="submit">حفظ حدود الفترة</button></div>
+</form>
+<div id="stages-list" class="perf-list"></div></section>
+</main><footer>تستخدم المنصة المعايير كمصدر مساند للتقييم وتحتفظ بالإصدارات التاريخية.</footer></body></html>
