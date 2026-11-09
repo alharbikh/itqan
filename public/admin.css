@@ -166,3 +166,68 @@
   .admin-sidebar{max-width:calc(100vw - 52px)}
   .admin-menu-item{font-size:.85rem}
 }
+
+/* Final visual polish: compact forms and predictable vertical nav rhythm. */
+.admin-sidebar-head{
+  padding:13px 16px 11px;
+}
+.admin-sidebar-head strong{font-size:.95rem}
+.admin-sidebar-head small{line-height:1.4}
+.admin-menu{
+  flex-wrap:nowrap;
+  align-items:stretch;
+  justify-content:flex-start;
+  align-content:stretch;
+  gap:3px;
+  padding:9px 10px;
+}
+.admin-menu-item{
+  flex:0 0 auto;
+  min-height:42px;
+  padding:8px 11px;
+}
+.school-dialog .field-grid{
+  gap:10px 14px;
+  padding-block:13px;
+}
+.school-dialog .field-grid label{
+  gap:3px;
+  line-height:1.5;
+}
+.school-dialog .field-grid input,
+.school-dialog .field-grid select{
+  padding:8px 11px;
+  min-height:42px;
+}
+@media(max-width:760px){
+  .admin-sidebar-head{padding:13px 16px 10px}
+  .nav-expanded .admin-menu,
+  .nav-icons .admin-menu,
+  .nav-hidden .admin-menu{
+    gap:3px;
+    flex-wrap:nowrap;
+    align-items:stretch;
+    justify-content:flex-start;
+    padding:9px 10px;
+  }
+  .nav-expanded .admin-menu-item,
+  .nav-icons .admin-menu-item,
+  .nav-hidden .admin-menu-item{
+    flex:0 0 auto;
+    min-height:42px;
+    padding:8px 11px;
+  }
+  .school-dialog .field-grid{
+    gap:9px;
+    padding:11px 15px;
+  }
+  .school-dialog .field-grid label{
+    gap:3px;
+    line-height:1.45;
+  }
+  .school-dialog .field-grid input,
+  .school-dialog .field-grid select{
+    min-height:40px;
+    padding:8px 10px;
+  }
+}
