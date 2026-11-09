@@ -4,7 +4,8 @@ insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,created_
 values
  ('71111111-1111-4111-8111-111111111111','00000000-0000-0000-0000-000000000000','authenticated','authenticated','frame-admin@itqan.invalid',now(),now(),now()),
  ('72222222-2222-4222-8222-222222222222','00000000-0000-0000-0000-000000000000','authenticated','authenticated','frame-principal@itqan.invalid',now(),now(),now()),
- ('73333333-3333-4333-8333-333333333333','00000000-0000-0000-0000-000000000000','authenticated','authenticated','frame-employee@itqan.invalid',now(),now(),now());
+ ('73333333-3333-4333-8333-333333333333','00000000-0000-0000-0000-000000000000','authenticated','authenticated','frame-employee@itqan.invalid',now(),now(),now()),
+ ('76666666-6666-4666-8666-666666666666','00000000-0000-0000-0000-000000000000','authenticated','authenticated','frame-approver@itqan.invalid',now(),now(),now());
 insert into public.user_roles(user_id,role_code) values('71111111-1111-4111-8111-111111111111','site_admin');
 insert into public.schools(id,name,status) values('74444444-4444-4444-8444-444444444444','Framework test school','active');
 insert into public.academic_years(id,label,starts_on,ends_on)
@@ -12,10 +13,11 @@ values('75555555-5555-4555-8555-555555555555','Framework test year',current_date
 insert into public.school_memberships(school_id,user_id,access_role,job_role,status)
 values
  ('74444444-4444-4444-8444-444444444444','72222222-2222-4222-8222-222222222222','school_principal','principal','active'),
- ('74444444-4444-4444-8444-444444444444','73333333-3333-4333-8333-333333333333','employee','teacher','active');
+ ('74444444-4444-4444-8444-444444444444','73333333-3333-4333-8333-333333333333','employee','teacher','active'),
+ ('74444444-4444-4444-8444-444444444444','76666666-6666-4666-8666-666666666666','school_principal','principal','active');
 set local role authenticated;
 do $$
-declare b uuid;f uuid;criterion uuid;evidence_id uuid;feedback_id uuid;review_id uuid;denied boolean;
+declare b uuid;f uuid;criterion uuid;v_job uuid;evidence_id uuid;feedback_id uuid;review_id uuid;denied boolean;
 begin
  perform set_config('request.jwt.claim.sub','71111111-1111-4111-8111-111111111111',true);
  b:=public.itqan_admin_stage_framework(
@@ -67,9 +69,10 @@ begin
  exception when insufficient_privilege then denied:=true;
  end;
  if not denied then raise exception 'Manager self-review was not prevented';end if;
- insert into public.performance_reviews(school_id,subject_user_id,reviewer_user_id,academic_year,status)
- values('74444444-4444-4444-8444-444444444444','73333333-3333-4333-8333-333333333333',
- '72222222-2222-4222-8222-222222222222','test','draft') returning id into review_id;
+ select id into v_job from public.job_titles where code='test_teacher';
+ review_id:=public.itqan_school_create_review(
+  '74444444-4444-4444-8444-444444444444',
+  '73333333-3333-4333-8333-333333333333','test',f,v_job);
  perform set_config('request.jwt.claim.sub','73333333-3333-4333-8333-333333333333',true);
  perform public.itqan_employee_acknowledge_framework('74444444-4444-4444-8444-444444444444',f);
  perform public.itqan_employee_ack_midyear(feedback_id,'Read and understood');
@@ -79,6 +82,9 @@ begin
  values('73333333-3333-4333-8333-333333333333','Personal standalone item','No criteria yet')
  returning id into evidence_id;
  insert into public.personal_evidence_criteria(evidence_id,criterion_id) values(evidence_id,criterion);
+ insert into public.personal_evidence_shares(evidence_id,school_id,user_id)
+ values(evidence_id,'74444444-4444-4444-8444-444444444444',
+ '73333333-3333-4333-8333-333333333333');
  if not exists(select 1 from public.personal_evidence_criteria where evidence_id=evidence_id and criterion_id=criterion) then
   raise exception 'Personal evidence cannot link to criterion';end if;
 end $$;
@@ -98,5 +104,36 @@ begin
  exception when insufficient_privilege then denied:=true;
  end;
  if not denied then raise exception 'Frozen review was modified without exception';end if;
-end $$;
+ if exists(select 1 from public.personal_evidence_shares where
+  user_id='73333333-3333-4333-8333-333333333333' and
+  school_id='74444444-4444-4444-8444-444444444444' and revoked_at is null) then
+  raise exception 'Personal evidence remains shared after unlink';end if;
+end $;
+set local role authenticated;
+do $
+declare review_id uuid;request_id uuid;criterion_one uuid;criterion_two uuid;result numeric;
+begin
+ perform set_config('request.jwt.claim.sub','72222222-2222-4222-8222-222222222222',true);
+ select id into review_id from public.performance_reviews
+ where school_id='74444444-4444-4444-8444-444444444444'
+ and subject_user_id='73333333-3333-4333-8333-333333333333'
+ and academic_year='test';
+ request_id:=public.itqan_school_request_review_exception(
+  review_id,'Completing the documented outstanding criteria after transfer');
+ perform set_config('request.jwt.claim.sub','76666666-6666-4666-8666-666666666666',true);
+ perform public.itqan_school_decide_review_exception(request_id,true,now()+interval '2 days');
+ perform set_config('request.jwt.claim.sub','72222222-2222-4222-8222-222222222222',true);
+ select id into criterion_one from public.evaluation_criteria where code='local-criterion-a';
+ select id into criterion_two from public.evaluation_criteria where code='local-criterion-b';
+ perform public.itqan_school_exception_score(request_id,criterion_one,5::smallint,'Strong result');
+ perform public.itqan_school_exception_score(request_id,criterion_two,4::smallint,'Above average');
+ result:=public.itqan_school_exception_submit(request_id);
+ if result<>94 then raise exception 'Weighted exceptional score incorrect %',result;end if;
+ if not exists(select 1 from public.review_exception_requests where id=request_id
+   and status='expired' and revoked_at is not null) then
+  raise exception 'Exception remained active after submitting';end if;
+ if not exists(select 1 from public.performance_reviews where id=review_id
+   and status='submitted' and final_score_100=94) then
+  raise exception 'Exceptional submitted review incorrect';end if;
+end $;
 rollback;
