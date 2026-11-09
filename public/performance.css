@@ -1,0 +1,16 @@
+.perf-wrap{width:min(1180px,calc(100% - 36px));margin:30px auto 65px;display:grid;gap:18px}
+.perf-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.perf-head h1{font-size:clamp(1.25rem,2.4vw,1.85rem);margin:8px 0}.perf-head p{color:#617783}
+.perf-section{background:#fff;border:1px solid #d9e8e9;border-radius:16px;padding:22px;min-width:0;display:grid;gap:12px}
+.perf-section h2{font-size:1.1rem;margin:0}.perf-section h3{font-size:.94rem;margin:12px 0 0}
+.perf-section p{color:#607784;margin:0 0 8px}.perf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;align-items:end}
+.perf-grid>label,.perf-toolbar>label{display:grid;gap:6px;font-size:.86rem;font-weight:650;min-width:0}
+.perf-grid input,.perf-grid select,.perf-grid textarea,.perf-toolbar select,.perf-section select{width:100%;max-width:100%;min-width:0;background:#fff;color:#18354a;padding:10px;border:1px solid #cbdce0;border-radius:10px;font:inherit}
+.perf-wide{grid-column:1/-1}.perf-toolbar{display:flex;gap:14px;align-items:end;flex-wrap:wrap;padding:16px;background:#eef7f7;border-radius:14px}
+.perf-toolbar>label{flex:1 1 210px}.perf-tag{padding:10px;border-radius:12px;background:#d7ebed;font-size:.85rem}
+.perf-list{display:grid;gap:8px}.perf-item{padding:12px 14px;background:#f5fafb;border:1px solid #e0ecef;border-radius:12px;display:grid;gap:5px;overflow-wrap:anywhere}
+.perf-item span{font-size:.84rem}.perf-item button{justify-self:start}.perf-note{border:1px solid #bed9dd;background:#f5fbfc;border-radius:11px;padding:10px;overflow-wrap:anywhere}
+.perf-section button,#refresh{border:1px solid #075b64;border-radius:9px;padding:10px 14px;background:#075b64;color:#fff;cursor:pointer;font:inherit}
+.perf-section button:disabled{opacity:.5;cursor:not-allowed}.perf-slim{margin-top:12px}
+.perf-section[hidden],.principal-panel[hidden]{display:none!important}
+@media(max-width:700px){.perf-wrap{width:calc(100% - 20px);margin:14px auto 45px}.perf-section{padding:14px}.perf-grid{grid-template-columns:1fr}.perf-head{align-items:start}}
