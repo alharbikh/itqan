@@ -42,6 +42,11 @@ jobs:
           DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
           test -n "$DB_CONTAINER"
           docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/site_admin_school_rls.sql
+      - name: Verify privileged admin operations reject other accounts
+        run: |
+          DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
+          test -n "$DB_CONTAINER"
+          docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/site_admin_operations_rls.sql
       - name: Stop disposable database
         if: always()
         run: supabase stop --no-backup || true
