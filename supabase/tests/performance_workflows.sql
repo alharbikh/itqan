@@ -17,7 +17,7 @@ values
  ('74444444-4444-4444-8444-444444444444','76666666-6666-4666-8666-666666666666','school_principal','principal','active');
 set local role authenticated;
 do $$
-declare b uuid;f uuid;criterion uuid;v_job uuid;evidence_id uuid;feedback_id uuid;review_id uuid;denied boolean;
+declare b uuid;f uuid;criterion uuid;v_job uuid;v_evidence_id uuid;feedback_id uuid;review_id uuid;denied boolean;
 begin
  perform set_config('request.jwt.claim.sub','71111111-1111-4111-8111-111111111111',true);
  b:=public.itqan_admin_stage_framework(
@@ -81,12 +81,12 @@ begin
   raise exception 'Midyear feedback acknowledgement failed';end if;
  insert into public.personal_evidence(user_id,title,description)
  values('73333333-3333-4333-8333-333333333333','Personal standalone item','No criteria yet')
- returning id into evidence_id;
- insert into public.personal_evidence_criteria(evidence_id,criterion_id) values(evidence_id,criterion);
+ returning id into v_evidence_id;
+ insert into public.personal_evidence_criteria(evidence_id,criterion_id) values(v_evidence_id,criterion);
  insert into public.personal_evidence_shares(evidence_id,school_id,user_id)
- values(evidence_id,'74444444-4444-4444-8444-444444444444',
+ values(v_evidence_id,'74444444-4444-4444-8444-444444444444',
  '73333333-3333-4333-8333-333333333333');
- if not exists(select 1 from public.personal_evidence_criteria where evidence_id=evidence_id and criterion_id=criterion) then
+ if not exists(select 1 from public.personal_evidence_criteria where evidence_id=v_evidence_id and criterion_id=criterion) then
   raise exception 'Personal evidence cannot link to criterion';end if;
 end $$;
 reset role;
