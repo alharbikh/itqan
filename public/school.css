@@ -8,6 +8,6 @@
 .school-service{padding:16px 17px;border:1px solid #dce8e9;background:#f8fbfb;border-radius:14px;display:flex;flex-direction:column;gap:5px}
 .school-service strong{font-size:.9rem;color:#164f56}
 .school-service small{font-size:.72rem;color:#7b919c}
-.school-sidebar .principal-only[hidden]{display:none!important}
+#school-sidebar .principal-only[hidden]{display:none!important}
 @media(max-width:760px){.school-context{padding:12px 14px;gap:9px}.school-context select{width:100%;flex:1;min-width:0}.school-service-grid{grid-template-columns:1fr}}
 @media print{.school-context,.admin-sidebar,.nav-toggle{display:none!important}}
