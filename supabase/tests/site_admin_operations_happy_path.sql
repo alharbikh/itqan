@@ -62,9 +62,9 @@ BEGIN
             AND role_code='site_admin') THEN
     RAISE EXCEPTION 'Site admin revoke failed';
   END IF;
-  PERFORM public.itqan_admin_set_user_status('22222222-2222-4222-8222-222222222222','inactive');
+  PERFORM public.itqan_admin_set_user_status('22222222-2222-4222-8222-222222222222','disabled');
   IF NOT EXISTS(SELECT 1 FROM public.users
-                WHERE id='22222222-2222-4222-8222-222222222222' AND status='inactive') THEN
+                WHERE id='22222222-2222-4222-8222-222222222222' AND status='disabled') THEN
     RAISE EXCEPTION 'User status update failed';
   END IF;
 END $$;
