@@ -24,6 +24,12 @@ function mockSupabase(role='site_admin') {
     if(p==='/rest/v1/users')return Response.json([{id:userId,full_name:'Owner',status:'active',created_at:'2026-11-09T00:00:00Z'}]);
     if(p==='/rest/v1/user_roles')return Response.json(role==='site_admin'?[{role_code:'site_admin'}]:[]);
     if(p==='/rest/v1/school_memberships')return Response.json([]);
+    if (p.startsWith('/rest/v1/rpc/')) {
+      writes.push({method:init.method,body:init.body,headers:init.headers,url:String(url)});
+      return Response.json(true);
+    }
+    if (p==='/rest/v1/site_admin_audit') return Response.json([]);
+    if (p==='/rest/v1/role_permissions') return Response.json([{role_code:'employee',permission_code:'school.view'}]);
     if(p==='/rest/v1/schools') {
       writes.push({method:init.method,body:init.body,headers:init.headers,url:String(url)});
       if(init.method==='POST'||init.method==='PATCH')return Response.json([{id:schoolId,name:'مدرسة الاختبار',status:'active'}]);
@@ -119,4 +125,70 @@ test('visual preview shows UI assets but never exposes Supabase APIs',async()=>{
     const prodPage=await worker.fetch(request('/admin-preview.html'),env);
     assert.equal(prodPage.status,404);
   } finally {spy.close();}
+});
+
+test('non-admin cannot execute privileged RPC actions',async()=>{
+  const m=mockSupabase('member');
+  try {
+    for(const action of [
+      {action:'school.delete',school_id:schoolId},
+      {action:'membership.upsert',school_id:schoolId,user_id:userId,access_role:'school_principal',job_role:'principal',status:'active'},
+      {action:'user.status',user_id:userId,status:'inactive'},
+    ]) {
+      const r=await worker.fetch(request('/api/admin/actions','POST',action),env);
+      assert.equal(r.status,403);
+    }
+    assert.equal(m.writes.length,0);
+  }finally{m.close();}
+});
+test('admin school deletion is only possible via scoped RPC and authenticated token',async()=>{
+  const m=mockSupabase();
+  try {
+    const r=await worker.fetch(request('/api/admin/actions','POST',{action:'school.delete',school_id:schoolId}),env);
+    assert.equal(r.status,200);
+    const write=m.writes.find(x=>x.url.endsWith('/rpc/itqan_admin_delete_empty_school'));
+    assert.deepEqual(JSON.parse(write.body),{p_school:schoolId});
+    assert.equal(write.headers.authorization,'Bearer mock-access');
+  }finally{m.close();}
+});
+test('administrator membership changes cannot accept site_admin or extra fields',async()=>{
+  const m=mockSupabase();
+  try {
+    const baseBody={action:'membership.upsert',school_id:schoolId,user_id:userId,
+      access_role:'employee',job_role:'teacher',status:'active'};
+    for(const input of [
+      {...baseBody,access_role:'site_admin'}, {...baseBody,role_code:'site_admin'},
+      {...baseBody,access_role:'school_principal',job_role:'teacher'},
+      {...baseBody,status:'deleted'},
+    ]) {
+      const r=await worker.fetch(request('/api/admin/actions','POST',input),env);
+      assert.equal(r.status,400);
+    }
+    assert.equal(m.writes.length,0);
+    const valid=await worker.fetch(request('/api/admin/actions','POST',baseBody),env);
+    assert.equal(valid.status,200);
+    const write=m.writes.find(x=>x.url.endsWith('/rpc/itqan_admin_manage_membership'));
+    assert.equal(JSON.parse(write.body).p_access_role,'employee');
+  }finally{m.close();}
+});
+test('admin actions require same-origin and valid UUIDs',async()=>{
+  const m=mockSupabase();
+  try {
+    assert.equal((await worker.fetch(request('/api/admin/actions','POST',
+      {action:'school.delete',school_id:schoolId},{origin:'https://evil.invalid'}),env)).status,403);
+    assert.equal((await worker.fetch(request('/api/admin/actions','POST',
+      {action:'school.delete',school_id:'invalid'}),env)).status,400);
+    assert.equal(m.writes.length,0);
+  }finally{m.close();}
+});
+test('admin role matrix, memberships and audit logs use authenticated reads',async()=>{
+  const m=mockSupabase();
+  try {
+    for(const path of ['/api/admin/memberships','/api/admin/audit','/api/admin/roles']){
+      const r=await worker.fetch(request(path),env);
+      assert.equal(r.status,200);
+    }
+    const a=await worker.fetch(request('/api/admin/roles'),env);
+    assert.equal((await a.json()).permissions[0].role_code,'employee');
+  }finally{m.close();}
 });
