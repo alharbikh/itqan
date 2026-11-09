@@ -104,3 +104,19 @@ test('admin users list is read-only and derives from RLS',async()=>{
     assert.equal((await worker.fetch(request('/api/admin/users','POST',valid),env)).status,405);
   }finally{m.close();}
 });
+
+test('visual preview shows UI assets but never exposes Supabase APIs',async()=>{
+  const spy=mockSupabase();
+  try {
+    const previewEnv={...env,PREVIEW_ONLY:'true'};
+    const page=await worker.fetch(request('/admin-preview.html'),previewEnv);
+    assert.equal(page.status,200);
+    for(const path of ['/api/session','/api/admin/schools','/admin.html','/school.html']) {
+      const res=await worker.fetch(request(path),previewEnv);
+      assert.equal(res.status,403);
+    }
+    assert.equal(spy.writes.length,0);
+    const prodPage=await worker.fetch(request('/admin-preview.html'),env);
+    assert.equal(prodPage.status,404);
+  } finally {spy.close();}
+});
