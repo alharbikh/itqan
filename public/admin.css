@@ -62,3 +62,107 @@
 
 .preview-banner{padding:10px 22px;background:#e7f4f4;color:#075b64;font-size:.83rem;font-weight:850;text-align:center;border-bottom:1px solid #bfe3df}
 @media(max-width:760px){.preview-banner{padding:9px 12px;font-size:.72rem}}
+
+/* Mobile review corrections: keep the dialog fully within the visual viewport. */
+.admin-app{overflow-x:clip}
+.school-dialog{
+  position:fixed;
+  inset:0;
+  margin:auto;
+  max-width:calc(100vw - 24px);
+  width:min(670px,calc(100vw - 24px));
+  max-height:min(88vh,calc(100dvh - 24px));
+  overflow:hidden;
+  overscroll-behavior:contain;
+}
+.school-dialog[open]{
+  display:flex;
+  flex-direction:column;
+}
+.school-dialog .school-form{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  min-width:0;
+  max-height:min(88vh,calc(100dvh - 24px));
+  overflow:hidden;
+  padding:0;
+}
+.school-dialog .dialog-header{
+  flex:0 0 auto;
+  position:relative;
+  z-index:1;
+  background:#fff;
+  margin:0;
+  padding:17px 22px;
+  border-bottom:1px solid #e7eff0;
+}
+.school-dialog .dialog-header h2{
+  min-width:0;
+  font-size:clamp(1.06rem,3vw,1.32rem);
+  line-height:1.65;
+  overflow-wrap:anywhere;
+}
+.school-dialog .field-grid{
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:20px 22px;
+  scrollbar-gutter:stable;
+}
+.school-dialog .dialog-actions{
+  flex:0 0 auto;
+  position:relative;
+  z-index:1;
+  background:#fff;
+  margin:0;
+  padding:14px 22px;
+  border-top:1px solid #e7eff0;
+  flex-wrap:nowrap;
+}
+.school-dialog .dialog-actions>*{min-width:0}
+.school-dialog #school-form-error{
+  margin:0 22px 8px;
+  flex:0 0 auto;
+}
+@media(max-width:760px){
+  .admin-topbar{min-width:0;overflow:hidden}
+  .admin-top-right{flex:1 1 auto;min-width:0}
+  .admin-top-left{flex:0 0 auto}
+  .admin-identity{flex:1 1 auto;min-width:0;gap:7px}
+  .admin-identity .admin-brand{
+    font-size:0;
+    overflow:visible;
+    white-space:nowrap;
+    max-width:none;
+  }
+  .admin-identity .admin-brand::after{
+    content:"إتقان";
+    font-size:.94rem;
+    font-weight:850;
+  }
+  .school-dialog{
+    width:calc(100vw - 20px);
+    max-width:calc(100vw - 20px);
+    max-height:calc(100dvh - 24px);
+    border-radius:16px;
+  }
+  .school-dialog .school-form{max-height:calc(100dvh - 24px)}
+  .school-dialog .dialog-header{padding:12px 15px}
+  .school-dialog .field-grid{padding:14px 15px;gap:12px}
+  .school-dialog .field-grid label{font-size:.83rem;gap:4px}
+  .school-dialog .field-grid input,
+  .school-dialog .field-grid select{padding:9px 11px;min-height:42px}
+  .school-dialog .dialog-actions{padding:11px 15px;gap:8px}
+  .school-dialog .dialog-actions .button,
+  .school-dialog .dialog-actions .primary{
+    padding:10px 12px;
+    font-size:.82rem;
+    white-space:normal;
+    text-align:center;
+  }
+  .school-dialog .dialog-actions .primary{flex:1 1 auto}
+  .school-dialog #school-form-error{margin:0 15px 8px}
+  .admin-sidebar{max-width:calc(100vw - 52px)}
+  .admin-menu-item{font-size:.85rem}
+}
