@@ -213,3 +213,19 @@ test('site admin role delegation is only a guarded boolean RPC',async()=>{
     }
   }finally{m.close();}
 });
+
+test('account suspension uses the existing disabled enum, not membership inactive',async()=>{
+  const m=mockSupabase();
+  try{
+    const valid=await worker.fetch(request('/api/admin/actions','POST',{
+      action:'user.status',user_id:userId,status:'disabled'
+    }),env);
+    assert.equal(valid.status,200);
+    const write=m.writes.find(x=>x.url.endsWith('/rpc/itqan_admin_set_user_status'));
+    assert.deepEqual(JSON.parse(write.body),{p_user:userId,p_status:'disabled'});
+    const invalid=await worker.fetch(request('/api/admin/actions','POST',{
+      action:'user.status',user_id:userId,status:'inactive'
+    }),env);
+    assert.equal(invalid.status,400);
+  } finally {m.close();}
+});
