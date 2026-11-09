@@ -13,6 +13,14 @@
 <input id="school-employee-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" required></label>
 <div><button type="submit">إرسال طلب الارتباط</button></div></form></section>
 <section class="perf-section"><h2>طلباتك السابقة</h2><div id="requests" class="perf-list"></div></section>
+<section class="perf-section"><h2>استكمال تقييم مجمد بصفة استثنائية</h2>
+<p>يُستخدم فقط بواسطة المقيم السابق وبعد اعتماد استثناء محدد المدة من جهة مخولة مستقلة عنه.</p>
+<form id="exception-form" class="perf-grid">
+<label>معرف التقييم المجمد<input id="exception-review" required></label>
+<label>سبب طلب الاستكمال<input id="exception-reason" minlength="10" maxlength="1000" required></label>
+<div><button type="submit">طلب استكمال استثنائي</button></div>
+</form>
+<div id="exceptions" class="perf-list"></div></section>
 <section id="active-panel" class="perf-section" hidden><h2>الارتباط الحالي</h2>
 <div id="active-school" class="perf-note"></div>
 <form id="unlink-form" class="perf-grid"><label>سبب فك الارتباط
