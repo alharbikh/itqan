@@ -1,0 +1,13 @@
+/* School workspace: inherits the admin center's responsive 3-state right sidebar. */
+.school-context{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:23px;padding:17px 20px;background:#fff;border:1px solid #deeaed;border-radius:16px}
+.school-context label{font-size:.79rem;color:#526d79;font-weight:850;white-space:nowrap}
+.school-context select{min-width:min(100%,240px);max-width:100%;padding:9px 13px;border-radius:12px;border:1px solid #cbd9de;background:#fff;color:#18334a;font:inherit}
+.school-context .status-pill{align-self:center}
+.school-role-stat{font-size:1.02rem!important;overflow-wrap:anywhere}
+.school-service-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.school-service{padding:16px 17px;border:1px solid #dce8e9;background:#f8fbfb;border-radius:14px;display:flex;flex-direction:column;gap:5px}
+.school-service strong{font-size:.9rem;color:#164f56}
+.school-service small{font-size:.72rem;color:#7b919c}
+.school-sidebar .principal-only[hidden]{display:none!important}
+@media(max-width:760px){.school-context{padding:12px 14px;gap:9px}.school-context select{width:100%;flex:1;min-width:0}.school-service-grid{grid-template-columns:1fr}}
+@media print{.school-context,.admin-sidebar,.nav-toggle{display:none!important}}
