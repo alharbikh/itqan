@@ -135,6 +135,24 @@ async function refresh(){
     link.target='_blank';link.textContent='فتح الرابط';box.append(link);}
   }
   if(!sharedList.children.length)item(sharedList,'لم يشارك الموظفون شواهد شخصية مع المدرسة.');
+  const requests=await api('/api/school/review-exceptions?school_id='+encodeURIComponent(state.school));
+  const list=$('exception-requests-list');list.replaceChildren();
+  for(const x of requests.exceptions||[]){
+   const box=item(list,'المقيم السابق: '+x.requested_by,'التقييم: '+x.review_id,
+    'الحالة: '+x.status,'السبب: '+x.reason);
+   if(x.status==='pending'&&x.requested_by!==state.user.id){
+    for(const [approve,label] of [[true,'إجازة لمدة 7 أيام'],[false,'رفض الطلب']]){
+     const button=document.createElement('button');button.type='button';button.textContent=label;
+     button.onclick=async()=>{if(!confirm('هل تؤكد قرار الاستثناء؟'))return;
+       try{await api('/api/school/review-exceptions','POST',
+        {action:'decide',request_id:x.id,approve,
+         expires_at:approve?new Date(Date.now()+7*86400000).toISOString():null});
+        msg('حُفظ قرار الاستكمال','success');await refresh();}catch(e){msg(e.message,'error');}};
+     box.append(button);
+    }
+   }
+  }
+  if(!list.children.length)item(list,'لا توجد طلبات استكمال استثنائي.');
  }
 }
 async function scoreEditor(review,container){
