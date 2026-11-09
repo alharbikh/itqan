@@ -26,7 +26,7 @@ function mockSupabase(role='site_admin') {
     if(p==='/rest/v1/school_memberships'){
       const member=role==='principal'||role==='employee' ?
         [{school_id:schoolId,access_role:role==='principal'?'school_principal':'employee',
-          job_role:role==='principal'?'principal':'teacher',user_id,status:'active'}] : [];
+          job_role:role==='principal'?'principal':'teacher',user_id:userId,status:'active'}] : [];
       return Response.json(member);
     }
     if (p.startsWith('/rest/v1/rpc/')) {
