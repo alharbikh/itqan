@@ -177,6 +177,80 @@ async function api(request, env, pathname) {
     return json({ ok: true }, 200, clearedCookies());
   }
 
+
+  if (pathname === '/api/admin/memberships' || pathname === '/api/admin/audit' ||
+      pathname === '/api/admin/roles' || pathname === '/api/admin/actions') {
+    const current = await session(request, env);
+    if (!current.user) return json({ error: 'Unauthorized' }, 401, current.cookies);
+    if (current.user.role !== 'site_admin') return json({ error: 'Forbidden' }, 403, current.cookies);
+    if (request.method === 'GET') {
+      const paths = {
+        '/api/admin/memberships': '/rest/v1/school_memberships?select=id,school_id,user_id,access_role,job_role,status,created_at&order=created_at.desc&limit=500',
+        '/api/admin/audit': '/rest/v1/site_admin_audit?select=id,actor_user_id,operation,target_type,target_id,details,created_at&order=created_at.desc&limit=100',
+        '/api/admin/roles': '/rest/v1/role_permissions?select=role_code,permission_code&order=role_code.asc',
+      };
+      if (!paths[pathname]) return json({ error: 'Method not allowed' }, 405, current.cookies);
+      const result = await backend(env, paths[pathname], 'GET', undefined, current.token);
+      if (!result.ok) return json({ error: 'Unable to read administration data' }, 502, current.cookies);
+      const key = { '/api/admin/memberships': 'memberships',
+        '/api/admin/audit': 'audit', '/api/admin/roles': 'permissions' }[pathname];
+      return json({ [key]: result.data }, 200, current.cookies);
+    }
+    if (pathname !== '/api/admin/actions' || request.method !== 'POST')
+      return json({ error: 'Method not allowed' }, 405, current.cookies);
+    const body = await input(request);
+    if (!body || typeof body !== 'object' || Array.isArray(body))
+      return json({ error: 'Invalid action' }, 400, current.cookies);
+    const uuid = value => typeof value === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+    let rpc, params, keys;
+    switch (body.action) {
+      case 'school.delete':
+        rpc = 'itqan_admin_delete_empty_school';
+        params = { p_school: body.school_id };
+        keys = ['action','school_id'];
+        if (!uuid(body.school_id)) return json({ error: 'Invalid school' }, 400, current.cookies);
+        break;
+      case 'school.status':
+        rpc = 'itqan_admin_set_school_status';
+        params = { p_school: body.school_id, p_status: body.status };
+        keys = ['action','school_id','status'];
+        if (!uuid(body.school_id) || !['active','inactive'].includes(body.status))
+          return json({ error: 'Invalid school status' }, 400, current.cookies);
+        break;
+      case 'user.status':
+        rpc = 'itqan_admin_set_user_status';
+        params = { p_user: body.user_id, p_status: body.status };
+        keys = ['action','user_id','status'];
+        if (!uuid(body.user_id) || !['active','inactive'].includes(body.status))
+          return json({ error: 'Invalid user status' }, 400, current.cookies);
+        break;
+      case 'membership.upsert':
+        rpc = 'itqan_admin_manage_membership';
+        params = { p_school: body.school_id, p_user: body.user_id,
+          p_access_role: body.access_role, p_job_role: body.job_role, p_status: body.status };
+        keys = ['action','school_id','user_id','access_role','job_role','status'];
+        if (!uuid(body.school_id) || !uuid(body.user_id) ||
+            !['school_principal','employee'].includes(body.access_role) ||
+            !['principal','teacher','vice_principal','counselor','staff'].includes(body.job_role) ||
+            !['active','inactive'].includes(body.status) ||
+            (body.access_role === 'school_principal' && body.job_role !== 'principal'))
+          return json({ error: 'Invalid membership' }, 400, current.cookies);
+        break;
+      default: return json({ error: 'Unknown action' }, 400, current.cookies);
+    }
+    if (Object.keys(body).some(key => !keys.includes(key)))
+      return json({ error: 'Unexpected action fields' }, 400, current.cookies);
+    const result = await backend(env, '/rest/v1/rpc/' + rpc, 'POST', params, current.token);
+    if (!result.ok) {
+      const pgCode = result.data?.code;
+      if (body.action === 'school.delete' && pgCode === '23503')
+        return json({ error: 'المدرسة مرتبطة بسجلات أو عضويات؛ عطّل المدرسة بدلًا من حذفها.' }, 409, current.cookies);
+      return json({ error: pgCode === '42501' ? 'Forbidden' : 'Unable to perform administrative action' },
+        pgCode === '42501' ? 403 : 422, current.cookies);
+    }
+    return json({ ok: true, result: result.data }, 200, current.cookies);
+  }
   if (pathname === '/api/admin/schools' || pathname === '/api/admin/users' ||
       /^\/api\/admin\/schools\/[0-9a-f-]{36}$/.test(pathname)) {
     const current = await session(request, env);
