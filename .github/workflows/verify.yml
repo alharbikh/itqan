@@ -1,0 +1,37 @@
+name: Verify Itqan
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  app-and-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test Cloudflare API authentication and authorization
+        run: npm test
+      - name: Validate server and browser JavaScript
+        run: npm run check
+      - name: Check published asset paths for prohibited browser-side account state
+        run: |
+          ! grep -R -nE 'localStorage|sessionStorage|IndexedDB|ITQAN_CURRENT_USER' public src
+          ! grep -R -n 'value="123456"' public
+          ! find public -type f \( -iname '*demo*' -o -iname '*seed*' \) | grep .
+  schema-bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - name: Rebuild schema in disposable local Supabase service
+        run: |
+          supabase init
+          supabase start
+          supabase db reset --no-seed
+      - name: Stop disposable database
+        if: always()
+        run: supabase stop --no-backup || true
