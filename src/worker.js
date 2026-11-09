@@ -658,6 +658,17 @@ async function api(request, env, pathname) {
       json({error:r.data?.code==='42501'?'Forbidden':'Review criteria incomplete or invalid'},
         r.data?.code==='42501'?403:422,current.cookies);
   }
+  if(pathname==='/api/school/exception-criteria'&&request.method==='GET'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const id=new URL(request.url).searchParams.get('request_id');
+    if(!id||!/^[0-9a-f-]{36}$/i.test(id))return json({error:'Invalid exception'},400,current.cookies);
+    const r=await backend(env,'/rest/v1/rpc/itqan_school_exception_criteria','POST',
+      {p_request:id},current.token);
+    return r.ok?json({criteria:r.data},200,current.cookies):
+      json({error:r.data?.code==='42501'?'Forbidden':'Unable to read exceptional criteria'},
+        r.data?.code==='42501'?403:422,current.cookies);
+  }
   // #16: independently approved, time-boxed continuation of frozen evaluations.
   if(pathname==='/api/school/review-exceptions'){
     const current=await session(request,env);
