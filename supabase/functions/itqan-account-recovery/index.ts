@@ -13,8 +13,11 @@ const uuid = x => typeof x === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-
 const emailValid = x => typeof x === 'string' && x.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x);
 const passwordValid = x => typeof x === 'string' && x.length >= 8 && x.length <= 1024;
 const json = (data, status=200) => Response.json(data,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
-async function call(path, method='GET', body, key=ADMIN_KEY, bearer=key) {
-  const r=await fetch(SUPABASE_URL+path,{method,headers:{apikey:key,authorization:'Bearer '+bearer,
+async function call(path, method='GET', body, key=ADMIN_KEY,
+                    bearer=key.startsWith('sb_')?null:key) {
+  // Opaque sb_secret_* and sb_publishable_* keys are API keys, never JWTs.
+  const r=await fetch(SUPABASE_URL+path,{method,headers:{apikey:key,
+    ...(bearer?{authorization:'Bearer '+bearer}:{}),
     'content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
   let data=null;try{data=await r.json()}catch{}
   return {ok:r.ok,status:r.status,data};
