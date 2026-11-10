@@ -125,24 +125,46 @@ async function input(request, maxLength = 8192) {
   } catch { return null; }
 }
 
-function validSchool(body) {
-  if (!body || typeof body !== 'object' || Array.isArray(body) ||
-      typeof body.name !== 'string' || body.name.trim().length < 2 ||
-      body.name.trim().length > 160) return null;
-  const allowed = ['name','education_stage','gender','education_department','ministry_number'];
-  if (Object.keys(body).some(key => !allowed.includes(key))) return null;
-  const result = { name: body.name.trim() };
-  for (const key of allowed.slice(1)) {
-    const value = body[key];
-    if (value === undefined || value === null || value === '') {
-      result[key] = null;
-      continue;
-    }
-    if (typeof value !== 'string' || value.trim().length > 160) return null;
-    result[key] = value.trim();
+function validateSchool(body) {
+  const invalid=(field,error,code='INVALID_SCHOOL_FIELD')=>({field,error,code});
+  if(!body||typeof body!=='object'||Array.isArray(body))
+    return invalid(null,'لم تُرسل بيانات المدرسة بصورة صحيحة.');
+  const allowed=['name','education_stage','gender','education_department','ministry_number'];
+  const unexpected=Object.keys(body).find(key=>!allowed.includes(key));
+  if(unexpected)return invalid(null,'يحتوي الطلب على حقول غير مسموحة.');
+  if(typeof body.name!=='string'||body.name.trim().length<2||body.name.trim().length>160)
+    return invalid('name','اسم المدرسة مطلوب ويجب أن يتكون من حرفين إلى 160 حرفًا.');
+  const school={name:body.name.trim()};
+  for(const key of allowed.slice(1)){
+    const val=body[key];
+    if(val===undefined||val===null||val===''){school[key]=null;continue;}
+    if(typeof val!=='string'||val.trim().length>160)
+      return invalid(key,'أدخل قيمة نصية صحيحة لا تتجاوز 160 حرفًا.');
+    school[key]=val.trim()||null;
   }
-  if (result.gender !== null && !['male','female','mixed'].includes(result.gender)) return null;
-  return result;
+  if(school.gender!==null&&!['male','female','mixed'].includes(school.gender))
+    return invalid('gender','اختر فئة المدرسة من القائمة.');
+  if(school.ministry_number!==null&&!/^[0-9]{1,20}$/.test(school.ministry_number))
+    return invalid('ministry_number','الرقم الوزاري يجب أن يحتوي على أرقام فقط (بحد أقصى 20 رقمًا)، أو يُترك فارغًا.');
+  return {school};
+}
+function schoolFailure(result,operation,cookies){
+  const code=result.data?.code;
+  if(result.status===401||result.status===403||code==='42501')
+    return json({error:'لا يملك هذا الحساب صلاحية '+(operation==='create'?'إضافة':'تعديل')+
+      ' المدارس. سجّل الدخول بحساب مدير الموقع المخوّل.',code:'SCHOOL_FORBIDDEN'},403,cookies);
+  if(code==='23505')
+    return json({error:'الرقم الوزاري مسجل لمدرسة أخرى. غيّر الرقم أو اتركه فارغًا.',
+      field:'ministry_number',code:'SCHOOL_DUPLICATE_MINISTRY'},409,cookies);
+  if(code==='23514')
+    return json({error:'توجد قيمة غير معتمدة في بيانات المدرسة. راجع الفئة والمرحلة التعليمية.',
+      field:'gender',code:'SCHOOL_CONSTRAINT'},422,cookies);
+  if(code==='23502')
+    return json({error:'اسم المدرسة حقل إلزامي.',field:'name',code:'SCHOOL_REQUIRED_NAME'},422,cookies);
+  if(code==='22001')
+    return json({error:'أحد الحقول أطول من الحد المسموح.',code:'SCHOOL_FIELD_TOO_LONG'},422,cookies);
+  return json({error:'تعذّر حفظ المدرسة بسبب مشكلة في الخدمة. حاول لاحقًا أو أرسل رقم الخطأ للدعم.',
+    code:'SCHOOL_WRITE_FAILED',reference:typeof code==='string'&&/^[A-Z0-9]{4,8}$/.test(code)?code:null},502,cookies);
 }
 
 async function api(request, env, pathname) {
@@ -289,12 +311,13 @@ async function api(request, env, pathname) {
 
     if (pathname === '/api/admin/schools' && request.method === 'POST') {
       const body = await input(request);
-      const school = validSchool(body);
-      if (!school) return json({ error: 'Invalid school data' }, 400, current.cookies);
+      const checked=validateSchool(body);
+      if (!checked.school) return json({error:checked.error,field:checked.field,code:checked.code},
+        400,current.cookies);
+      const school=checked.school;
       const result = await backend(env, '/rest/v1/schools?select=id,name,education_stage,gender,education_department,ministry_number,status,created_at',
         'POST', school, current.token, { Prefer: 'return=representation' });
-      if (!result.ok) return json({ error: result.status === 403 || result.status === 401 ? 'Forbidden' : 'Could not create school' },
-        result.status === 403 || result.status === 401 ? 403 : 422, current.cookies);
+      if (!result.ok) return schoolFailure(result,'create',current.cookies);
       return json({ school: result.data?.[0] }, 201, current.cookies);
     }
 
@@ -303,13 +326,14 @@ async function api(request, env, pathname) {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(schoolId))
         return json({ error: 'Invalid school' }, 400, current.cookies);
       const body = await input(request);
-      const school = validSchool(body);
-      if (!school) return json({ error: 'Invalid school data' }, 400, current.cookies);
+      const checked=validateSchool(body);
+      if (!checked.school) return json({error:checked.error,field:checked.field,code:checked.code},
+        400,current.cookies);
+      const school=checked.school;
       const result = await backend(env,
         '/rest/v1/schools?id=eq.' + schoolId + '&select=id,name,education_stage,gender,education_department,ministry_number,status,created_at',
         'PATCH', school, current.token, { Prefer: 'return=representation' });
-      if (!result.ok) return json({ error: result.status === 403 || result.status === 401 ? 'Forbidden' : 'Could not update school' },
-        result.status === 403 || result.status === 401 ? 403 : 422, current.cookies);
+      if (!result.ok) return schoolFailure(result,'update',current.cookies);
       if (!Array.isArray(result.data) || !result.data.length)
         return json({ error: 'School not found' }, 404, current.cookies);
       return json({ school: result.data[0] }, 200, current.cookies);
