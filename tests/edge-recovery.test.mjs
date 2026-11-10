@@ -122,3 +122,12 @@ test('valid recovery code resets password and removes forced-change flag in one 
   assert.equal(update.body.app_metadata.itqan_force_password_change,undefined);
   assert.equal(update.body.app_metadata.provider,'email');
 });
+
+test('Edge recovery accepts six characters and rejects fewer than six',async()=>{
+  const m=setup();
+  const call=async password=>m.handler(new Request('https://itqan-test.supabase.co/functions/v1/itqan-account-recovery',{
+    method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
+      action:'complete_recovery',email:'staff@example.test',code:'123456',password})}));
+  assert.equal((await call('abc12')).status,400);
+  assert.equal((await call('abc123')).status,200);
+});
