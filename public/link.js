@@ -5,7 +5,30 @@ async function api(path,method='GET',body){const r=await fetch(path,{method,cred
  ...(body===undefined?{}:{headers:{'content-type':'application/json'},body:JSON.stringify(body)})});
  const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'تعذر تنفيذ الطلب');return d;}
 async function refresh(){
- const data=await Promise.all([api('/api/session'),api('/api/school/link-requests')]);
+ const data=await Promise.all([api('/api/session'),api('/api/school/link-requests'),
+  api('/api/personnel/my-requests'),api('/api/personnel/schools'),api('/api/catalog')]);
+ const schoolList=$('request-school');const remembered=schoolList.value;
+ schoolList.replaceChildren(new Option('اختر المدرسة',''));
+ for(const school of data[3].result||[])schoolList.add(new Option(
+   school.name+(school.education_department?' — '+school.education_department:''),school.id));
+ if(remembered&&[...schoolList.options].some(x=>x.value===remembered))schoolList.value=remembered;
+ const jobList=$('request-job');const oldJob=jobList.value;
+ jobList.replaceChildren(new Option('غير محدد',''));
+ for(const job of data[4].jobs||[])jobList.add(new Option(job.title_ar,job.id));
+ if(oldJob&&[...jobList.options].some(x=>x.value===oldJob))jobList.value=oldJob;
+ const requested=$('personnel-requests');requested.replaceChildren();
+ const translations={draft:'مسودة',pending:'بانتظار المراجعة',under_review:'قيد المراجعة',
+   changes_requested:'مطلوب استكمال',approved:'معتمد',rejected:'مرفوض',cancelled:'ملغى'};
+ for(const request of data[2].result||[]){
+   const row=document.createElement('div');row.className='perf-item';
+   const label=document.createElement('strong');label.textContent=(request.school_name||'المدرسة')+' — '+(translations[request.status]||request.status);
+   const detail=document.createElement('span');detail.textContent='تاريخ الطلب: '+new Date(request.created_at).toLocaleDateString('ar-SA')+
+     (request.decision_note?' — ملاحظة المدير: '+request.decision_note:'');
+   row.append(label,detail);requested.append(row);
+ }
+ if(!requested.children.length){const empty=document.createElement('div');empty.className='perf-note';
+   empty.textContent='لا توجد طلبات ملفات وظيفية.';requested.append(empty);}
+
  user=data[0].user;
  const target=$('requests');target.replaceChildren();
  for(const request of data[1].requests||[]){
@@ -61,8 +84,13 @@ async function refresh(){
   $('request-form').hidden=true;}else $('request-form').hidden=false;
 }
 $('request-form').addEventListener('submit',async e=>{e.preventDefault();
- try{await api('/api/school/link-request','POST',{school_employee_id:$('school-employee-id').value.trim()});
- notice('أُرسل الطلب لمدير المدرسة لمراجعة الهوية','success');$('request-form').reset();await refresh();}
+ if(user?.schoolMemberships?.length){notice('لديك ارتباط نشط حاليًا. أنهِه قبل اعتماد ارتباط جديد.','error');return;}
+ try{await api('/api/personnel/requests','POST',{
+ school_id:$('request-school').value,full_name:$('request-name').value.trim(),
+ national_id:$('request-national').value.trim(),job_title_id:$('request-job').value||null,
+ specialization:$('request-specialization').value.trim()||null});
+ notice('أُرسل الطلب إلى مدير المدرسة. لن ينشط الارتباط إلا بعد اعتماده.','success');
+ $('request-form').reset();await refresh();}
  catch(err){notice(err.message,'error');}});
 $('exception-form').addEventListener('submit',async e=>{e.preventDefault();
  try{await api('/api/school/review-exceptions','POST',
