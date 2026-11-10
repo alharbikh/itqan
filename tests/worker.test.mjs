@@ -79,7 +79,7 @@ test('anonymous visitor cannot read protected APIs or pages', async () => {
     assert.equal(api.status, 401);
     const page = await worker.fetch(req('/admin.html'), ENV);
     assert.equal(page.status, 302);
-    assert.equal(page.headers.get('location'), '/login.html');
+    assert.equal(page.headers.get('location'), '/access.html?reason=login&section=admin');
     assert.equal(mock.calls.some(c => c.path === '/rest/v1/schools'), false);
   } finally { mock.restore(); }
 });
@@ -87,7 +87,8 @@ test('ordinary member cannot open admin page, and can view school rows via JWT',
   const mock = interceptedFetch();
   try {
     const page = await worker.fetch(req('/admin.html', authenticated()), ENV);
-    assert.equal(page.status, 403);
+    assert.equal(page.status, 302);
+    assert.equal(page.headers.get('location'), '/access.html?reason=forbidden&section=admin');
     const own = await worker.fetch(req('/school.html', authenticated()), ENV);
     assert.equal(own.status, 200);
     assert.match(own.headers.get('cache-control'), /no-store/);
@@ -101,7 +102,7 @@ test('ordinary member cannot open admin page, and can view school rows via JWT',
 test('account without school access cannot read school data', async () => {
   const mock = interceptedFetch({ membership: false });
   try {
-    assert.equal((await worker.fetch(req('/school.html', authenticated()), ENV)).status, 403);
+    assert.equal((await worker.fetch(req('/school.html', authenticated()), ENV)).status, 302);
     assert.equal((await worker.fetch(req('/api/schools', authenticated()), ENV)).status, 403);
     assert.equal(mock.calls.some(x => x.path === '/rest/v1/schools'), false);
   } finally { mock.restore(); }
