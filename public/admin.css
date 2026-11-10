@@ -257,3 +257,12 @@
 .admin-membership-form .primary{min-height:46px}
 @media(max-width:980px){.admin-membership-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:580px){.admin-membership-form{grid-template-columns:1fr;gap:11px}}
+
+/* Unified field-level error indication in school management */
+.school-dialog input[aria-invalid="true"],
+.school-dialog select[aria-invalid="true"]{
+  border-color:#b53a40!important;
+  box-shadow:0 0 0 3px #b53a401a;
+  outline:none;
+}
+.school-dialog #school-form-error{line-height:1.7;white-space:normal}
