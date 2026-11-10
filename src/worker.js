@@ -493,6 +493,70 @@ async function api(request, env, pathname) {
     return r.ok?json({ok:true,year_id:r.data},201,current.cookies):
        json({error:'Unable to create academic year'},422,current.cookies);
   }
+
+  // Approved personnel workflow. All mutations are checked by scoped Postgres RPCs.
+  if(pathname.startsWith('/api/personnel/')){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const uuid=uuidValid;
+    const url=new URL(request.url);
+    const principal=schoolId=>current.user.schoolMemberships.some(m=>
+      m.school_id===schoolId&&m.access_role==='school_principal');
+    async function rpc(name,params){
+      const r=await backend(env,'/rest/v1/rpc/'+name,'POST',params,current.token);
+      if(r.ok)return json({ok:true,result:r.data},200,current.cookies);
+      const code=r.data?.code;
+      const error=code==='23505'?'يوجد تعارض في رقم الموظف أو العضوية المدرسية النشطة.':
+        code==='42501'?'لا تملك صلاحية هذا الإجراء.':
+        code==='22023'?'الطلب غير صالح أو لا يسمح وضعه الحالي بإتمام الإجراء.':
+        'تعذر إكمال العملية. تحقق من البيانات وحاول مجددًا.';
+      return json({error,code:code||'PERSONNEL_OPERATION_FAILED'},code==='23505'?409:code==='42501'?403:code==='22023'?422:502,current.cookies);
+    }
+    if(pathname==='/api/personnel/schools'&&request.method==='GET')
+      return rpc('itqan_personnel_school_catalog',{});
+    if(pathname==='/api/personnel/my-requests'&&request.method==='GET')
+      return rpc('itqan_personnel_my_requests',{});
+    if(pathname==='/api/personnel/requests'&&request.method==='POST'){
+      const b=await input(request);
+      if(!b||!uuid(b.school_id)||typeof b.full_name!=='string'||
+         b.full_name.trim().length<2||b.full_name.length>200||
+         typeof b.national_id!=='string'||!/^[0-9]{10}$/.test(b.national_id)||
+         (b.job_title_id!=null&&!uuid(b.job_title_id))||
+         (b.specialization!=null&&(typeof b.specialization!=='string'||b.specialization.length>120)))
+        return json({error:'تحقق من المدرسة والاسم ورقم الهوية.'},400,current.cookies);
+      return rpc('itqan_personnel_submit_request',{
+        p_school:b.school_id,p_name:b.full_name.trim(),p_national_id:b.national_id,
+        p_job_title:b.job_title_id||null,p_specialization:b.specialization||null});
+    }
+    if(pathname==='/api/personnel/admin'&&request.method==='GET'){
+      const schoolId=url.searchParams.get('school_id');
+      if(!uuid(schoolId)||!principal(schoolId))
+        return json({error:'Forbidden'},403,current.cookies);
+      return rpc('itqan_school_personnel_overview',{p_school:schoolId});
+    }
+    if(pathname==='/api/personnel/admin'&&request.method==='POST'){
+      const b=await input(request);
+      if(!b||!uuid(b.school_id)||!principal(b.school_id)||!uuid(b.request_id))
+        return json({error:'Forbidden'},403,current.cookies);
+      if(b.action==='reveal')
+        return rpc('itqan_school_personnel_reveal_identity',{p_request:b.request_id});
+      if(!['start','changes','reject','approve'].includes(b.action))
+        return json({error:'الإجراء غير مدعوم.'},400,current.cookies);
+      if(b.action==='approve'&&(!uuid(b.year_id)||typeof b.employee_number!=='string'||
+        !b.employee_number.trim()||b.employee_number.length>80||
+        (b.job_title_id!=null&&!uuid(b.job_title_id))))
+        return json({error:'اختر العام الدراسي ورقم الموظف الصحيح.'},400,current.cookies);
+      if(['changes','reject'].includes(b.action)&&
+        (typeof b.note!=='string'||b.note.trim().length<3||b.note.length>1000))
+        return json({error:'يجب إدخال سبب القرار.'},400,current.cookies);
+      return rpc('itqan_school_personnel_decide',{
+        p_request:b.request_id,p_action:b.action,
+        p_employee_number:b.employee_number||null,p_year:b.year_id||null,
+        p_job:b.job_title_id||null,p_note:b.note||null});
+    }
+    return json({error:'طريقة الطلب غير مسموحة.'},405,current.cookies);
+  }
+
   if(pathname==='/api/school/personnel' && request.method==='GET'){
     const current=await session(request,env);
     if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
