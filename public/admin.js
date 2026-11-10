@@ -163,6 +163,7 @@ function openPasswordReset(user){
   $('password-reset-output').hidden=true;$('password-reset-once').value='';
   $('password-reset-submit').hidden=false;
   $('password-reset-user-name').textContent='الحساب: '+(user.full_name||user.id);
+  $('password-reset-submit').textContent='إنشاء كلمة مرور مؤقتة';
   $('password-reset-dialog').showModal();$('password-reset-reason').focus();
 }
 async function submitPasswordReset(e){
@@ -484,3 +485,7 @@ async function start() {
 }
 document.addEventListener('DOMContentLoaded',start);
 })();
+$('password-reset-mode')?.addEventListener('change',()=>{
+  $('password-reset-submit').textContent=$('password-reset-mode').value==='email'
+    ?'إرسال رمز الاستعادة':'إنشاء كلمة مرور مؤقتة';
+});
