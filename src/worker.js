@@ -554,6 +554,44 @@ async function api(request, env, pathname) {
         p_employee_number:b.employee_number||null,p_year:b.year_id||null,
         p_job:b.job_title_id||null,p_note:b.note||null});
     }
+    if(pathname==='/api/personnel/operations'&&request.method==='GET'){
+      const school=url.searchParams.get('school_id');
+      if(school&&(!uuid(school)||!principal(school)))
+        return json({error:'Forbidden'},403,current.cookies);
+      return rpc('itqan_profile_operation_list',{p_school:school||null});
+    }
+    if(pathname==='/api/personnel/operations'&&request.method==='POST'){
+      const b=await input(request);
+      if(!b||typeof b.action!=='string')
+        return json({error:'طلب غير صالح.'},400,current.cookies);
+      if(b.action==='start'){
+        if(!uuid(b.source_profile_id)||!uuid(b.target_school_id)||
+          !principal(b.target_school_id)||!['copy','transfer'].includes(b.operation_type)||
+          typeof b.employee_number!=='string'||b.employee_number.trim().length<1||
+          b.employee_number.length>80||!Array.isArray(b.selected_fields)||
+          !b.selected_fields.includes('full_name_snapshot')||
+          b.selected_fields.length<1||b.selected_fields.length>4||
+          new Set(b.selected_fields).size!==b.selected_fields.length||
+          b.selected_fields.some(x=>!['full_name_snapshot','specialization','job_title_id','started_on'].includes(x)))
+          return json({error:'تحقق من حقول النقل والمدرسة المستقبلة.'},400,current.cookies);
+        return rpc('itqan_profile_operation_start',{
+          p_source:b.source_profile_id,p_target_school:b.target_school_id,
+          p_operation:b.operation_type,p_employee_number:b.employee_number.trim(),
+          p_fields:b.selected_fields});
+      }
+      if(!uuid(b.operation_id))
+        return json({error:'معرف العملية غير صالح.'},400,current.cookies);
+      if(b.action==='decide'){
+        if(!['subject','source_school_owner'].includes(b.approval_type)||
+           !['approved','rejected'].includes(b.decision))
+          return json({error:'قرار الموافقة غير صالح.'},400,current.cookies);
+        return rpc('itqan_profile_operation_decide',{
+          p_operation:b.operation_id,p_approval_type:b.approval_type,p_decision:b.decision});
+      }
+      if(b.action==='execute')
+        return rpc('itqan_profile_operation_execute',{p_operation:b.operation_id});
+      return json({error:'الإجراء غير مدعوم.'},400,current.cookies);
+    }
     return json({error:'طريقة الطلب غير مسموحة.'},405,current.cookies);
   }
 
