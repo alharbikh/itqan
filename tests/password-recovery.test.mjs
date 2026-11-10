@@ -9,7 +9,6 @@ const OTHER='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const TOKEN='mock-access', REFRESH='mock-refresh';
 const ENV={SUPABASE_URL:'https://itqan-test.supabase.co',
   SUPABASE_PUBLISHABLE_KEY:'sb_publishable_test_only',
-  SUPABASE_SERVICE_ROLE_KEY:'test-service-role-key-keep-on-server-only',
   ASSETS:{fetch:async req=>new Response('<html><body>view</body></html>',
     {headers:{'content-type':'text/html'}})}};
 const request=(path,body,cookies='')=>new Request(ORIGIN+path,{method:'POST',
@@ -25,6 +24,12 @@ function mock({role='member',forced=false,recoveryValid=true,auditOk=true}={}){
     const ok=x=>Response.json(x);
     const fail=(status=400)=>Response.json({error:'denied'},{status});
     if(path==='/auth/v1/recover')return ok({});
+    if(path==='/functions/v1/itqan-account-recovery'){
+      if(body.action==='change_forced')return ok({ok:true});
+      if(!auditOk)return fail(502);
+      if(body.mode==='email')return ok({ok:true,message:'تم إرسال تعليمات الاستعادة'});
+      return ok({ok:true,temporary_password:'TEST_TEMP_PASSWORD_NOT_ACTUAL_123'});
+    }
     if(path==='/auth/v1/verify')return recoveryValid?ok({access_token:TOKEN,refresh_token:REFRESH,expires_in:3600}):fail();
     if(path==='/auth/v1/token')return ok({access_token:TOKEN,refresh_token:REFRESH,expires_in:3600});
     if(path==='/auth/v1/user')return method==='PUT'?ok({}):
@@ -86,38 +91,35 @@ test('non-admin cannot issue temporary passwords',async()=>{
     assert.equal(m.events.some(x=>x.path.startsWith('/auth/v1/admin/')),false);
   }finally{m.restore()}
 });
-test('admin reset audits first and returns a temporary password once without changing role metadata',async()=>{
+test('site admin can request temporary password via authenticated Edge function proxy',async()=>{
   const m=mock({role:'site_admin'});try{
     const r=await worker.fetch(request('/api/admin/users/password',
       {user_id:OTHER,reason:'تم التحقق من هوية صاحب الحساب'},cookies),ENV);
     assert.equal(r.status,200);
-    const result=await r.json();assert.equal(result.temporary_password.length,24);
-    const audit=m.events.find(x=>x.path==='/rest/v1/site_admin_audit');
-    const reset=m.events.find(x=>x.path==='/auth/v1/admin/users/'+OTHER && x.method==='PUT');
-    assert.ok(audit&&reset);
-    assert.ok(m.events.indexOf(audit)<m.events.indexOf(reset));
-    assert.equal(audit.body.details.reason,'تم التحقق من هوية صاحب الحساب');
-    assert.equal(JSON.stringify(audit.body).includes(result.temporary_password),false);
-    assert.equal(reset.body.app_metadata.provider,'email');
-    assert.equal(reset.body.app_metadata.itqan_force_password_change,true);
+    const payload=await r.json();
+    assert.ok(payload.temporary_password);
+    const routed=m.events.find(e=>e.path==='/functions/v1/itqan-account-recovery');
+    assert.ok(routed);assert.equal(routed.body.action,'admin_recover');
+    assert.equal(routed.body.mode,'temporary');
+    assert.equal(routed.headers.authorization,'Bearer '+TOKEN);
+    assert.equal(m.events.some(e=>e.path.startsWith('/auth/v1/admin/')),false);
   }finally{m.restore()}
 });
-test('admin may send an audited recovery email without changing credentials',async()=>{
+test('site admin can request email recovery via authenticated Edge function proxy',async()=>{
   const m=mock({role:'site_admin'});try{
     const r=await worker.fetch(request('/api/admin/users/password',
       {user_id:OTHER,reason:'تم التحقق من هوية صاحب الحساب',mode:'email'},cookies),ENV);
     assert.equal(r.status,200);
-    const result=await r.json();assert.equal(result.temporary_password,undefined);
-    assert.equal(m.events.find(x=>x.path==='/rest/v1/site_admin_audit').body.operation,'user.password.recovery_email');
-    assert.ok(m.events.find(x=>x.path==='/auth/v1/recover'));
-    assert.equal(m.events.some(x=>x.path==='/auth/v1/admin/users/'+OTHER&&x.method==='PUT'),false);
+    assert.equal((await r.json()).temporary_password,undefined);
+    assert.equal(m.events.find(e=>e.path==='/functions/v1/itqan-account-recovery').body.mode,'email');
   }finally{m.restore()}
 });
-test('failed audit blocks administrative password change',async()=>{
+test('administrative reset failures from Edge function do not expose secrets',async()=>{
   const m=mock({role:'site_admin',auditOk:false});try{
     const r=await worker.fetch(request('/api/admin/users/password',
       {user_id:OTHER,reason:'تم التحقق من هوية صاحب الحساب'},cookies),ENV);
-    assert.equal(r.status,502);assert.equal(m.events.some(x=>x.path==='/auth/v1/admin/users/'+OTHER&&x.method==='PUT'),false);
+    assert.equal(r.status,502);
+    assert.equal(m.events.some(e=>e.path.startsWith('/auth/v1/admin/')),false);
   }finally{m.restore()}
 });
 test('temporary password prevents access until user changes it',async()=>{
@@ -130,13 +132,15 @@ test('temporary password prevents access until user changes it',async()=>{
     assert.equal((await session.json()).user.mustChangePassword,true);
   }finally{m.restore()}
 });
-test('forced change updates password and clears only application forced-change metadata',async()=>{
+test('forced change is delegated to Supabase Edge Function without privileged Cloudflare key',async()=>{
   const m=mock({forced:true});try{
-    const r=await worker.fetch(request('/api/password/change',{password:'some-new-secure-password',current_password:'one-time-admin-password'},cookies),ENV);
+    const r=await worker.fetch(request('/api/password/change',
+      {password:'some-new-secure-password',current_password:'one-time-admin-password'},cookies),ENV);
     assert.equal(r.status,200);
-    const reset=m.events.find(x=>x.path==='/auth/v1/admin/users/'+ID && x.method==='PUT');
-    assert.ok(reset);assert.equal(reset.body.app_metadata.itqan_force_password_change,undefined);
-    assert.equal(reset.body.app_metadata.provider,'email');
+    const routed=m.events.find(e=>e.path==='/functions/v1/itqan-account-recovery');
+    assert.ok(routed);assert.equal(routed.body.action,'change_forced');
+    assert.equal(routed.headers.authorization,'Bearer '+TOKEN);
+    assert.equal(m.events.some(e=>e.path.startsWith('/auth/v1/admin/')),false);
   }finally{m.restore()}
 });
 test('ordinary password change requires current password validation',async()=>{
