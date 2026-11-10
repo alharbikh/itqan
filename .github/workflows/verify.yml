@@ -70,6 +70,11 @@ jobs:
           DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
           test -n "$DB_CONTAINER"
           docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/evidence_attachments_rls.sql
+      - name: Test new personnel requests, approvals and transfer in isolated PostgreSQL
+        run: |
+          DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
+          test -n "$DB_CONTAINER"
+          docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/school_personnel_new_workflow.sql
       - name: Stop disposable database
         if: always()
         run: supabase stop --no-backup || true
