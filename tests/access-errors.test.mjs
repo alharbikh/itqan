@@ -115,15 +115,24 @@ test('duplicate ministry number returns an actionable field-specific conflict',a
   assert.match(payload.error,/الرقم الوزاري/);
  }finally{m.restore();}
 });
-test('four-character registration reaches Supabase but does not grant any privileges',async()=>{
+test('six-character registration reaches Supabase but does not grant any privileges',async()=>{
  const m=scope('member');
  try{
   const r=await worker.fetch(req('/api/register',false,'POST',
-   {name:'مستخدم تجريبي',email:'new@example.invalid',password:'abc4',role:'site_admin'}),m.env);
+   {name:'مستخدم تجريبي',email:'new@example.invalid',password:'abc456',role:'site_admin'}),m.env);
   assert.equal(r.status,202);
   const sent=JSON.parse(m.calls.find(c=>c.path==='/auth/v1/signup').body);
-  assert.equal(sent.password,'abc4');
+  assert.equal(sent.password,'abc456');
   assert.equal(sent.role,undefined);
+ }finally{m.restore();}
+});
+test('four-character password is rejected locally before reaching Supabase',async()=>{
+ const m=scope('member');
+ try{
+  const response=await worker.fetch(req('/api/register',false,'POST',
+   {name:'مستخدم تجريبي',email:'new@example.invalid',password:'abc4'}),m.env);
+  assert.equal(response.status,400);
+  assert.equal(m.calls.some(c=>c.path==='/auth/v1/signup'),false);
  }finally{m.restore();}
 });
 test('Supabase strong-password restriction gets explicit error without claiming registration',async()=>{
@@ -131,7 +140,7 @@ test('Supabase strong-password restriction gets explicit error without claiming 
   {error_code:'weak_password',message:'Password should be at least 6 characters'},{status:422})});
  try{
   const r=await worker.fetch(req('/api/register',false,'POST',
-   {name:'مستخدم تجريبي',email:'new@example.invalid',password:'abc4'}),m.env);
+   {name:'مستخدم تجريبي',email:'new@example.invalid',password:'abc456'}),m.env);
   assert.equal(r.status,422);
   const data=await r.json();
   assert.equal(data.code,'AUTH_PASSWORD_POLICY');
