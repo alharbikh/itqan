@@ -24,7 +24,14 @@ async function api(path, method='GET', body) {
   });
   let payload;
   try { payload = await response.json(); } catch { payload={}; }
-  if (!response.ok) throw Error(payload.error || 'Request failed');
+  if (!response.ok) {
+    const failure=new Error(payload.error || 'تعذر إتمام الطلب. أعد المحاولة.');
+    failure.status=response.status;
+    failure.code=payload.code||null;
+    failure.field=payload.field||null;
+    failure.reference=payload.reference||null;
+    throw failure;
+  }
   return payload;
 }
 function navRender() {
@@ -323,9 +330,13 @@ async function refresh() {
     state.siteAdmins=Array.isArray(siteAdmins.site_admins)?siteAdmins.site_admins:[];
     populateSchools();populateUsers();populateOverview();
     fillMembershipOptions();populateMemberships();populateRoles();populateSiteAdmins();
-  } catch {
+  } catch (error) {
     $('stat-connection').textContent='تعذر الاتصال';
-    notice('تعذر تحميل بيانات الإدارة من Supabase. تحقق من الجلسة أو الصلاحيات.','error');
+    if(error.status===401||error.status===403){
+      location.replace('/access.html?reason='+(error.status===401?'login':'forbidden')+'&section=admin');
+      return;
+    }
+    notice('تعذر تحميل بيانات الإدارة: '+error.message,'error');
   }
 }
 function openSchool(school=null) {
@@ -338,6 +349,7 @@ function openSchool(school=null) {
   $('school-gender').value=school?.gender||'';
   $('school-department').value=school?.education_department||'';
   $('school-form-error').hidden=true;
+  for(const el of $('school-form').querySelectorAll('[aria-invalid]'))el.removeAttribute('aria-invalid');
   $('school-dialog').showModal();
   $('school-name').focus();
 }
@@ -365,9 +377,13 @@ async function saveSchool(event) {
     await refresh();
     go('schools');
     notice(editing?'تم تحديث بيانات المدرسة بنجاح.':'تم تسجيل المدرسة في Supabase بنجاح.','success');
-  } catch {
+  } catch (error) {
     $('school-form-error').hidden=false;
-    $('school-form-error').textContent='لم يتم حفظ المدرسة. تحقق من الحقول والرقم الوزاري أو صلاحيات الحساب.';
+    $('school-form-error').textContent=error.message+(error.reference?' (رمز: '+error.reference+')':'');
+    const fields={name:'school-name',ministry_number:'school-ministry',
+      gender:'school-gender',education_stage:'school-stage',education_department:'school-department'};
+    const invalid=fields[error.field]&&$(fields[error.field]);
+    if(invalid){invalid.setAttribute('aria-invalid','true');invalid.focus();}
   } finally {btn.disabled=false;}
 }
 async function start() {
@@ -406,7 +422,13 @@ async function start() {
     $('top-user-name').textContent=user.name||'مدير الموقع';
     await refresh();
     await loadAudit();
-  } catch {notice('تعذر التحقق من جلسة مدير الموقع. أعد تسجيل الدخول.','error');}
+  } catch (error) {
+    if(error.status===401||error.status===403){
+      location.replace('/access.html?reason='+(error.status===401?'login':'forbidden')+'&section=admin');
+      return;
+    }
+    notice('تعذر التحقق من حساب مدير الموقع: '+(error.message||'اتصال الخدمة غير متاح')+'.','error');
+  }
 }
 document.addEventListener('DOMContentLoaded',start);
 })();
