@@ -81,13 +81,18 @@ async function handler(req) {
     const verified=await call('/auth/v1/token?grant_type=password','POST',
       {email:auth.data.email,password:body.current_password},PUBLIC_KEY,null);
     if(!verified.ok)return json({error:'Invalid current password'},403);
-    const changed=await call('/auth/v1/user','PUT',{password:body.password},PUBLIC_KEY,token);
-    if(!changed.ok)return json({error:'Password rejected'},422);
-    const app={...auth.data.app_metadata};
+    // Update password and forced-change state together; never leave a half-unlocked account.
+    const accountResponse=await call('/auth/v1/admin/users/'+encodeURIComponent(actor));
+    const account=accountResponse.data?.user||accountResponse.data;
+    if(!accountResponse.ok||account?.id!==actor)return json({error:'Account unavailable'},502);
+    if(account.app_metadata?.itqan_force_password_change!==true)
+      return json({error:'Temporary password already changed'},409);
+    const app={...(account.app_metadata||{})};
     delete app.itqan_force_password_change;
     delete app.itqan_temp_password_expires_at;
-    const cleared=await call('/auth/v1/admin/users/'+encodeURIComponent(actor),'PUT',{app_metadata:app});
-    if(!cleared.ok)return json({error:'Could not complete account unlock'},502);
+    const changed=await call('/auth/v1/admin/users/'+encodeURIComponent(actor),'PUT',
+      {password:body.password,app_metadata:app});
+    if(!changed.ok)return json({error:'Password change rejected'},422);
     return json({ok:true});
   }
   if(body.action!=='admin_recover')return json({error:'Unknown action'},400);
