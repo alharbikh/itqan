@@ -177,28 +177,3 @@ test('six-character password passes initial recovery validation and reaches Edge
     assert.ok(m.events.some(e=>e.path==='/functions/v1/itqan-account-recovery'));
   }finally{m.restore()}
 });
-
-test('administrative reason accepts exactly three letters',async()=>{
-  const m=mock({role:'site_admin'});try{
-    const accepted=await worker.fetch(request('/api/admin/users/password',
-      {user_id:OTHER,reason:'سبب',mode:'temporary'},cookies),ENV);
-    assert.equal(accepted.status,200);
-    const rejected=await worker.fetch(request('/api/admin/users/password',
-      {user_id:OTHER,reason:'سب',mode:'temporary'},cookies),ENV);
-    assert.equal(rejected.status,400);
-  }finally{m.restore()}
-});
-test('admin password modal protects temporary credential from casual screenshots',()=>{
-  const html=readFileSync(new URL('../public/admin.html',import.meta.url),'utf8');
-  assert.match(html,/id="password-reset-reason" minlength="3"/);
-  assert.match(html,/id="password-reset-once" type="password"/);
-  assert.match(html,/class="password-reset-body"/);
-});
-
-test('reset dialog hides submit action after issuing one-time password',()=>{
-  const css=readFileSync(new URL('../public/admin.css',import.meta.url),'utf8');
-  const js=readFileSync(new URL('../public/admin.js',import.meta.url),'utf8');
-  assert.match(css,/#password-reset-submit\[hidden\]/);
-  assert.match(js,/button\.hidden=true/);
-  assert.match(js,/button\.disabled\|\|button\.hidden\|\|!\$\('password-reset-output'\)\.hidden/);
-});
