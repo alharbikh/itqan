@@ -64,6 +64,22 @@
           <h2>الملفات الوظيفية المعتمدة</h2>
           <p>الرقم الوظيفي خاص بهذه المدرسة. لا يُنشأ ملف معتمد إلا بعد التحقق وموافقة المدير.</p>
           <div class="table-scroll"><table class="admin-table"><thead><tr><th>اسم الموظف</th><th>رقم الموظف</th><th>الحالة</th><th>التخصص</th></tr></thead><tbody id="personnel-profiles-body"></tbody></table></div>
+          <div class="personnel-transfer-block">
+            <h3>نقل أو نسخ ملف من مدرسة أخرى</h3>
+            <p>تبدأ المدرسة المستقبلة الطلب. تحصل على معرف الملف المصدر من صاحبه، ثم تُستكمل موافقة صاحب الملف والمدرسة المصدر قبل التنفيذ.</p>
+            <form id="personnel-operation-form" class="personnel-approval-form">
+              <label>نوع العملية <select id="personnel-operation-type"><option value="copy">نسخ الملف</option><option value="transfer">نقل الملف</option></select></label>
+              <label>معرف الملف المصدر <input id="personnel-source-id" placeholder="معرف الملف المعتمد" required></label>
+              <label>رقم الموظف في هذه المدرسة <input id="personnel-target-number" maxlength="80" required></label>
+              <fieldset class="personnel-fields"><legend>الحقول المسموح بنقلها أو نسخها</legend>
+                <label><input type="checkbox" value="full_name_snapshot" checked disabled> الاسم الوظيفي (إلزامي)</label>
+                <label><input type="checkbox" value="specialization" checked> التخصص</label>
+                <label><input type="checkbox" value="job_title_id" checked> المسمى الوظيفي</label>
+                <label><input type="checkbox" value="started_on"> تاريخ البداية</label>
+              </fieldset>
+              <div><button type="submit" class="button">طلب الموافقات</button></div>
+            </form>
+          </div>
           <h3>العضويات المدرسية الحالية</h3>
           <div class="table-scroll"><table class="admin-table"><thead><tr><th>المستخدم</th><th>الصلاحية</th><th>العمل الحالي</th><th>حالة العضوية</th></tr></thead><tbody id="members-body"></tbody></table></div>
         </div>
@@ -75,7 +91,7 @@
         <div data-personnel-panel="history" hidden>
           <h2>سجل الإجراءات</h2>
           <p>يعرض هذا القسم حالات الطلبات والقرارات؛ ولا يتيح الاطلاع على ملفات المدارس الأخرى.</p>
-          <div id="personnel-history-list" class="personnel-list"></div>
+          <div id="personnel-history-list" class="personnel-list"></div><h3>عمليات النسخ والنقل وقرارات الموافقة</h3><div id="personnel-operations-list" class="personnel-list"></div>
         </div>
       </div>
     </section>
