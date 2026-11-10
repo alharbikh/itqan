@@ -25,6 +25,9 @@ function mock({role='member',forced=false,recoveryValid=true,auditOk=true}={}){
     const fail=(status=400)=>Response.json({error:'denied'},{status});
     if(path==='/auth/v1/recover')return ok({});
     if(path==='/functions/v1/itqan-account-recovery'){
+      if(body.action==='complete_recovery')return recoveryValid
+        ?ok({ok:true,access_token:TOKEN,refresh_token:REFRESH,expires_in:3600})
+        :fail(400);
       if(body.action==='change_forced')return ok({ok:true});
       if(!auditOk)return fail(502);
       if(body.mode==='email')return ok({ok:true,message:'تم إرسال تعليمات الاستعادة'});
@@ -72,8 +75,11 @@ test('correct recovery OTP changes password on Worker and stores tokens only in 
     assert.equal((await r.json()).user.id,ID);
     assert.equal(r.headers.getSetCookie().length,2);
     assert.ok(r.headers.getSetCookie().every(x=>x.includes('HttpOnly')));
-    assert.equal(m.events.find(x=>x.path==='/auth/v1/verify').body.type,'recovery');
-    assert.equal(m.events.find(x=>x.path==='/auth/v1/user'&&x.method==='PUT').body.password,'very-long-new-secret');
+    const finished=m.events.find(x=>x.path==='/functions/v1/itqan-account-recovery');
+    assert.equal(finished.body.action,'complete_recovery');
+    assert.equal(finished.body.code,'123456');
+    assert.equal(finished.body.password,'very-long-new-secret');
+    assert.equal(m.events.some(x=>x.path==='/auth/v1/user'&&x.method==='PUT'),false);
   }finally{m.restore()}
 });
 test('incorrect code does not update credentials',async()=>{
