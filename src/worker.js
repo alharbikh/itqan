@@ -19,11 +19,6 @@ const RESET_MIN_LENGTH = 8;
 const emailValid = value => typeof value==='string' && value.length<=254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
 const validPassword = value => typeof value==='string' && value.length>=RESET_MIN_LENGTH && value.length<=1024;
 const uuidValid = value => typeof value==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-function temporaryPassword(){
-  const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-  const bytes=new Uint8Array(24);crypto.getRandomValues(bytes);
-  return [...bytes].map(n=>alphabet[n%alphabet.length]).join('');
-}
 
 
 function headers(contentType = 'application/json; charset=utf-8') {
