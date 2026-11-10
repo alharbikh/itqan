@@ -26,7 +26,7 @@ function mock({role='member',forced=false,recoveryValid=true,auditOk=true}={}){
     if(path==='/auth/v1/recover')return ok({});
     if(path==='/functions/v1/itqan-account-recovery'){
       if(body.action==='complete_recovery')return recoveryValid
-        ?ok({ok:true,access_token:TOKEN,refresh_token:REFRESH,expires_in:3600})
+        ?ok({ok:true})
         :fail(400);
       if(body.action==='change_forced')return ok({ok:true});
       if(!auditOk)return fail(502);
@@ -67,14 +67,14 @@ test('recovery rejects invalid input before contacting Supabase',async()=>{
     assert.equal(r.status,400);assert.equal(m.events.length,0);
   }finally{m.restore()}
 });
-test('correct recovery OTP changes password on Worker and stores tokens only in HttpOnly cookies',async()=>{
+test('correct recovery OTP changes password and invalidates old browser cookies',async()=>{
   const m=mock();try{
     const r=await worker.fetch(request('/api/password/recovery/complete',
       {email:'member@example.test',code:'123456',password:'very-long-new-secret'}),ENV);
     assert.equal(r.status,200);
-    assert.equal((await r.json()).user.id,ID);
+    assert.equal((await r.json()).ok,true);
     assert.equal(r.headers.getSetCookie().length,2);
-    assert.ok(r.headers.getSetCookie().every(x=>x.includes('HttpOnly')));
+    assert.ok(r.headers.getSetCookie().every(x=>x.includes('Max-Age=0')&&x.includes('HttpOnly')));
     const finished=m.events.find(x=>x.path==='/functions/v1/itqan-account-recovery');
     assert.equal(finished.body.action,'complete_recovery');
     assert.equal(finished.body.code,'123456');
