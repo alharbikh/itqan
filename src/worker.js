@@ -229,15 +229,16 @@ async function api(request, env, pathname) {
     const body=await input(request);
     if(!body||!validPassword(body.password)||Object.keys(body).some(k=>!['password','current_password'].includes(k)))
       return json({error:'استخدم كلمة مرور جديدة لا تقل عن 8 أحرف.',code:'INVALID_PASSWORD'},400,current.cookies);
-    if(!current.user.mustChangePassword){
-      if(typeof body.current_password!=='string'||!body.current_password)
-        return json({error:'أدخل كلمة المرور الحالية.',code:'CURRENT_PASSWORD_REQUIRED'},400,current.cookies);
-      const identity=await backend(env,'/auth/v1/user','GET',undefined,current.token);
-      if(!identity.ok||!emailValid(identity.data?.email))return json({error:'تعذر التحقق من الحساب.'},403,current.cookies);
-      const checked=await backend(env,'/auth/v1/token?grant_type=password','POST',
-        {email:identity.data.email,password:body.current_password});
-      if(!checked.ok)return json({error:'كلمة المرور الحالية غير صحيحة.',code:'CURRENT_PASSWORD_INVALID'},403,current.cookies);
-    }
+    if(typeof body.current_password!=='string'||!body.current_password)
+      return json({error:current.user.mustChangePassword?'أدخل كلمة المرور المؤقتة.':'أدخل كلمة المرور الحالية.',
+        code:'CURRENT_PASSWORD_REQUIRED'},400,current.cookies);
+    if(body.password===body.current_password)
+      return json({error:'يجب أن تختلف كلمة المرور الجديدة عن الحالية.',code:'PASSWORD_REUSED'},400,current.cookies);
+    const identity=await backend(env,'/auth/v1/user','GET',undefined,current.token);
+    if(!identity.ok||!emailValid(identity.data?.email))return json({error:'تعذر التحقق من الحساب.'},403,current.cookies);
+    const checked=await backend(env,'/auth/v1/token?grant_type=password','POST',
+      {email:identity.data.email,password:body.current_password});
+    if(!checked.ok)return json({error:'كلمة المرور الحالية أو المؤقتة غير صحيحة.',code:'CURRENT_PASSWORD_INVALID'},403,current.cookies);
     let forcedIdentity=null;
     if(current.user.mustChangePassword){
       const expiry=Date.parse(current.user.temporaryExpiresAt||'');
