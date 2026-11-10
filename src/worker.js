@@ -113,6 +113,7 @@ async function verifiedUser(env, accessToken) {
     name: user.full_name || auth.data.email || 'مستخدم',
     role: Array.isArray(roles.data) && roles.data.some(x => x.role_code === 'site_admin') ? 'site_admin' : 'member',
     mustChangePassword: auth.data.app_metadata?.itqan_force_password_change === true,
+    temporaryExpiresAt: auth.data.app_metadata?.itqan_temp_password_expires_at || null,
     schoolMemberships: (Array.isArray(memberships.data) ? memberships.data : [])
       .filter(x => x.status === 'active').map(x => ({ school_id: x.school_id, access_role: x.access_role, job_role: x.job_role })),
   };
@@ -237,14 +238,21 @@ async function api(request, env, pathname) {
         {email:identity.data.email,password:body.current_password});
       if(!checked.ok)return json({error:'كلمة المرور الحالية غير صحيحة.',code:'CURRENT_PASSWORD_INVALID'},403,current.cookies);
     }
+    let forcedIdentity=null;
+    if(current.user.mustChangePassword){
+      const expiry=Date.parse(current.user.temporaryExpiresAt||'');
+      if(Number.isFinite(expiry)&&Date.now()>expiry)
+        return json({error:'انتهت صلاحية كلمة المرور المؤقتة. اطلب إعادة ضبط جديدة.',code:'TEMP_PASSWORD_EXPIRED'},403,current.cookies);
+      // Verify privileged configuration before modifying the password.
+      try{forcedIdentity=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(current.user.id));}
+      catch{return json({error:'تعذر إكمال تحديث الحساب. تواصل مع مدير الموقع.',code:'ADMIN_CONFIG_MISSING'},503,current.cookies);}
+      if(!forcedIdentity.ok)return json({error:'تعذر التحقق من حالة الحساب المؤقتة.',code:'ADMIN_LOOKUP_FAILED'},502,current.cookies);
+    }
     const result=await backend(env,'/auth/v1/user','PUT',{password:body.password},current.token);
     if(!result.ok)return json({error:'لم تقبل خدمة المصادقة كلمة المرور الجديدة.',code:'PASSWORD_REJECTED'},422,current.cookies);
     if(current.user.mustChangePassword){
-      // Remove the forced-change flag using a server-only privileged credential.
-      let identity;
-      try{identity=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(current.user.id));}
-      catch{return json({error:'تعذر إكمال تحديث الحساب. تواصل مع مدير الموقع.',code:'ADMIN_CONFIG_MISSING'},503,current.cookies);}
-      if(!identity.ok)return json({error:'تعذر إنهاء حالة كلمة المرور المؤقتة.',code:'ADMIN_LOOKUP_FAILED'},502,current.cookies);
+      // Preserve all existing authorization metadata.
+      const identity=forcedIdentity;
       const app={...(identity.data?.app_metadata||{})};
       delete app.itqan_force_password_change;
       delete app.itqan_temp_password_expires_at;
@@ -273,7 +281,7 @@ async function api(request, env, pathname) {
     if(!identity.ok)return json({error:'تعذر التحقق من حساب المصادقة.',code:'AUTH_USER_UNAVAILABLE'},502,current.cookies);
     // Record who approved the intervention before changing the credential.
     const audit=await privileged(env,'/rest/v1/site_admin_audit','POST',{
-      actor_user_id:current.user.id,operation:'user.password.temporary',
+      actor_user_id:current.user.id,operation:'user.password.temporary_attempt',
       target_type:'user',target_id:body.user_id,
       details:{reason:body.reason.trim(),method:'temporary_password'}
     });
