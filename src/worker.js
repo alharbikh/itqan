@@ -3,6 +3,11 @@
 const ACCESS_COOKIE = '__Host-itqan_at';
 const REFRESH_COOKIE = '__Host-itqan_rt';
 const API_PREFIX = '/api/';
+const PROTECTED_ROUTES = /^\/(admin|frameworks|school|performance|link)(?:\.html|\/)?$/;
+function protectedRoute(path) {
+  const match=path.match(PROTECTED_ROUTES);
+  return match?{section:match[1],asset:'/'+match[1]+'.html'}:null;
+}
 const SESSION_MAX_AGE = 60 * 60;
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 14;
 
@@ -958,26 +963,30 @@ export default {
   async fetch(request, env) {
     const pathname = new URL(request.url).pathname;
     try {
+      const target=protectedRoute(pathname);
       if (env.PREVIEW_ONLY === 'true') {
-        if (pathname.startsWith(API_PREFIX) || pathname === '/admin.html' || pathname === '/school.html')
-          return json({error:'Not available in visual preview'},403);
+        if (pathname.startsWith(API_PREFIX) || target)
+          return json({error:'هذه الصفحة غير متاحة في المعاينة البصرية',code:'PREVIEW_ONLY'},403);
         if (pathname === '/admin-preview.html')
           return secureAsset(await env.ASSETS.fetch(request),true);
       } else if (pathname === '/admin-preview.html') {
-        return json({error:'Not found'},404);
+        return json({error:'الصفحة غير موجودة',code:'NOT_FOUND'},404);
       }
-      if (pathname.startsWith(API_PREFIX)) return await api(request, env, pathname);
-      if (pathname === '/admin.html' || pathname === '/school.html' ||
-          pathname === '/frameworks.html' || pathname === '/performance.html' || pathname === '/link.html') {
-        const current = await session(request, env);
-        if (!current.user) return redirect('/login.html', current.cookies);
-        if ((pathname === '/admin.html' || pathname === '/frameworks.html') && current.user.role !== 'site_admin')
-          return json({ error: 'Forbidden' }, 403, current.cookies);
-        if (pathname === '/school.html' && current.user.role !== 'site_admin' &&
-            current.user.schoolMemberships.length === 0)
-          return json({ error: 'Membership required' }, 403, current.cookies);
-        const page = secureAsset(await env.ASSETS.fetch(request), true);
-        for (const value of current.cookies) page.headers.append('set-cookie', value);
+      if (pathname.startsWith(API_PREFIX)) return await api(request,env,pathname);
+      if (target) {
+        if (request.method!=='GET'&&request.method!=='HEAD')
+          return json({error:'طريقة الطلب غير مسموحة',code:'METHOD_NOT_ALLOWED'},405);
+        const current=await session(request,env);
+        if (!current.user)
+          return redirect('/access.html?reason=login&section='+target.section,current.cookies);
+        if (['admin','frameworks'].includes(target.section)&&current.user.role!=='site_admin')
+          return redirect('/access.html?reason=forbidden&section='+target.section,current.cookies);
+        if (target.section==='school'&&current.user.role!=='site_admin'&&
+            current.user.schoolMemberships.length===0)
+          return redirect('/access.html?reason=membership&section=school',current.cookies);
+        const assetRequest=new Request(new URL(target.asset,request.url),request);
+        const page=secureAsset(await env.ASSETS.fetch(assetRequest),true);
+        for(const value of current.cookies)page.headers.append('set-cookie',value);
         return page;
       }
       return secureAsset(await env.ASSETS.fetch(request));
