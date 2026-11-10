@@ -115,6 +115,7 @@ function renderMembers(rows){
 async function loadMembers(){
   if(!maySeeMembers())return;
   const select=state.selected;
+  if(window.itqanPersonnelAdmin)void window.itqanPersonnelAdmin.load(select);
   const tbody=$('members-body');tbody.replaceChildren();
   const tr=document.createElement('tr'),td=makeText('td','جارٍ تحميل العضويات…','empty-row');
   td.colSpan=4;tr.append(td);tbody.append(tr);
