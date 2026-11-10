@@ -34,12 +34,15 @@ async function init() {
           show('تم استلام التسجيل. تحقّق من بريدك الإلكتروني وانتظر اعتماد العضوية.', 'success');
         } else {
           const result = await call('/api/login', 'POST', { email, password });
-          window.location.assign(result.user.role === 'site_admin' ? '/admin.html' :
+          const next=new URLSearchParams(location.search).get('next');
+          const permitted=['/admin.html','/frameworks.html','/school.html','/performance.html','/link.html'];
+          window.location.assign(permitted.includes(next)?next:
+            result.user.role === 'site_admin' ? '/admin.html' :
             result.user.schoolMemberships?.length ? '/school.html' : '/link.html');
         }
-      } catch {
-        show(view === 'login' ? 'تعذّر تسجيل الدخول. تحقق من بيانات الحساب وتفعيله.' :
-          'تعذّر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.', 'error');
+      } catch (error) {
+        show(error.message || (view === 'login' ? 'تعذّر تسجيل الدخول.' :
+          'تعذّر إنشاء الحساب.'),'error');
       } finally { submit.disabled = false; }
     });
     return;
