@@ -30,6 +30,34 @@ function temporaryPassword() {
 async function handler(req) {
   if(req.method!=='POST')return json({error:'Method not allowed'},405);
   if(!SUPABASE_URL || !ADMIN_KEY || !PUBLIC_KEY)return json({error:'Recovery service not configured'},503);
+  let body;
+  try{body=await req.json()}catch{return json({error:'Invalid JSON'},400)}
+  if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'Invalid request'},400);
+  if(body.action==='complete_recovery'){
+    if(!emailValid(body.email)||typeof body.code!=='string'||!/^[0-9]{6,8}$/.test(body.code)||
+      !passwordValid(body.password)||Object.keys(body).some(k=>!['action','email','code','password'].includes(k)))
+      return json({error:'Invalid recovery request'},400);
+    const verified=await call('/auth/v1/verify','POST',
+      {type:'recovery',email:body.email.trim(),token:body.code},PUBLIC_KEY,null);
+    if(!verified.ok||!verified.data?.access_token||!verified.data?.refresh_token)
+      return json({error:'Invalid or expired recovery code'},400);
+    const user=await call('/auth/v1/user','GET',undefined,PUBLIC_KEY,verified.data.access_token);
+    if(!user.ok||!uuid(user.data?.id))return json({error:'Invalid recovery account'},403);
+    const profile=await call('/rest/v1/users?select=id,status&id=eq.'+encodeURIComponent(user.data.id));
+    if(!profile.ok||profile.data?.length!==1||profile.data[0].status!=='active')
+      return json({error:'Account not active'},403);
+    const identity=await call('/auth/v1/admin/users/'+encodeURIComponent(user.data.id));
+    const account=identity.data?.user||identity.data;
+    if(!identity.ok||account?.id!==user.data.id)return json({error:'Account unavailable'},502);
+    const app={...(account.app_metadata||{})};
+    delete app.itqan_force_password_change;
+    delete app.itqan_temp_password_expires_at;
+    const changed=await call('/auth/v1/admin/users/'+encodeURIComponent(user.data.id),'PUT',
+      {password:body.password,app_metadata:app});
+    if(!changed.ok)return json({error:'Password rejected'},422);
+    return json({ok:true,access_token:verified.data.access_token,
+      refresh_token:verified.data.refresh_token,expires_in:verified.data.expires_in});
+  }
   const bearer=req.headers.get('authorization')||'';
   if(!/^Bearer \S+$/.test(bearer))return json({error:'Unauthorized'},401);
   const token=bearer.slice(7);
@@ -39,9 +67,6 @@ async function handler(req) {
   const profile=await call('/rest/v1/users?select=id,status&id=eq.'+encodeURIComponent(actor));
   if(!profile.ok||profile.data?.length!==1||profile.data[0].status!=='active')
     return json({error:'Unauthorized'},401);
-  let body;
-  try{body=await req.json()}catch{return json({error:'Invalid JSON'},400)}
-  if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'Invalid request'},400);
   if(body.action==='change_forced'){
     if(!passwordValid(body.password)||typeof body.current_password!=='string'||!body.current_password||
       body.password===body.current_password||
