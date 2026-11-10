@@ -3,7 +3,14 @@ let catalog={years:[],stages:[]};
 function notice(x,type='info'){$('message').textContent=x;$('message').className='alert '+type;$('message').hidden=false;}
 async function api(path,method='GET',body){const res=await fetch(path,{method,credentials:'same-origin',
  ...(body===undefined?{}:{headers:{'content-type':'application/json'},body:JSON.stringify(body)})});
- const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.error||'تعذر إتمام العملية');return data;}
+ const data=await res.json().catch(()=>({}));
+ if(!res.ok){
+  if(res.status===401||res.status===403){
+   location.replace('/access.html?reason='+(res.status===401?'login':'forbidden')+'&section=frameworks');
+  }
+  throw Error(data.error||'تعذر تنفيذ العملية. تحقق من الاتصال وصلاحيات الحساب.');
+ }
+ return data;}
 function item(parent,...text){const box=document.createElement('div');box.className='perf-item';
  for(const part of text){const p=document.createElement('span');p.textContent=String(part||'—');box.append(p);}
  parent.append(box);return box;}
