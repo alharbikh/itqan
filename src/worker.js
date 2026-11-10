@@ -253,7 +253,7 @@ async function api(request, env, pathname) {
     if(current.user.mustChangePassword){
       // Preserve all existing authorization metadata.
       const identity=forcedIdentity;
-      const app={...(identity.data?.app_metadata||{})};
+      const app={...(identity.data?.user?.app_metadata||identity.data?.app_metadata||{})};
       delete app.itqan_force_password_change;
       delete app.itqan_temp_password_expires_at;
       const updated=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(current.user.id),
@@ -287,7 +287,7 @@ async function api(request, env, pathname) {
     });
     if(!audit.ok)return json({error:'تعذر تسجيل عملية التدقيق؛ لم تُغيّر كلمة المرور.',code:'AUDIT_FAILED'},502,current.cookies);
     const password=temporaryPassword();
-    const app={...(identity.data?.app_metadata||{}),
+    const app={...(identity.data?.user?.app_metadata||identity.data?.app_metadata||{}),
       itqan_force_password_change:true,
       itqan_temp_password_expires_at:new Date(Date.now()+24*60*60*1000).toISOString()};
     const result=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(body.user_id),'PUT',
