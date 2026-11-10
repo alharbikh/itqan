@@ -169,7 +169,9 @@ function openPasswordReset(user){
 async function submitPasswordReset(e){
   e.preventDefault();
   if(!passwordResetUser)return;
-  const button=$('password-reset-submit');button.disabled=true;
+  const button=$('password-reset-submit');
+  if(button.disabled||button.hidden||!$('password-reset-output').hidden)return;
+  button.disabled=true;
   $('password-reset-error').hidden=true;
   try{
     const result=await api('/api/admin/users/password','POST',{
@@ -180,7 +182,7 @@ async function submitPasswordReset(e){
     else{notice(result.message||'تم إرسال تعليمات الاستعادة إلى البريد المسجل.','success');
       closePasswordReset();return;}
     button.hidden=true;
-    await loadAudit();
+    try{await loadAudit();}catch{ /* Password reset already succeeded; audit refresh is best effort. */ }
   }catch(error){
     $('password-reset-error').textContent=error.message||'تعذر إعادة الضبط.';
     $('password-reset-error').hidden=false;
