@@ -530,6 +530,21 @@ async function api(request, env, pathname) {
         p_school:b.school_id,p_name:b.full_name.trim(),p_national_id:b.national_id,
         p_job_title:b.job_title_id||null,p_specialization:b.specialization||null});
     }
+    if(pathname==='/api/personnel/direct'&&request.method==='POST'){
+      const b=await input(request);
+      if(!b||!uuid(b.school_id)||!principal(b.school_id)||!uuid(b.year_id)||
+        typeof b.full_name!=='string'||b.full_name.trim().length<2||b.full_name.length>200||
+        typeof b.national_id!=='string'||!/^[0-9]{10}$/.test(b.national_id)||
+        typeof b.employee_number!=='string'||!b.employee_number.trim()||
+        b.employee_number.length>80||
+        (b.job_title_id!=null&&!uuid(b.job_title_id))||
+        (b.specialization!=null&&(typeof b.specialization!=='string'||b.specialization.length>120)))
+        return json({error:'تحقق من بيانات الملف الوظيفي وصلاحية المدرسة.'},400,current.cookies);
+      return rpc('itqan_school_create_profile',{
+        p_school:b.school_id,p_year:b.year_id,p_name:b.full_name.trim(),
+        p_national_id:b.national_id,p_number:b.employee_number.trim(),
+        p_job:b.job_title_id||null,p_specialization:b.specialization||null});
+    }
     if(pathname==='/api/personnel/admin'&&request.method==='GET'){
       const schoolId=url.searchParams.get('school_id');
       if(!uuid(schoolId)||!principal(schoolId))
