@@ -973,7 +973,7 @@ export default {
         if (!current.user) return redirect('/login.html', current.cookies);
         if ((pathname === '/admin.html' || pathname === '/frameworks.html') && current.user.role !== 'site_admin')
           return json({ error: 'Forbidden' }, 403, current.cookies);
-        if ((pathname === '/school.html' || pathname === '/performance.html') && current.user.role !== 'site_admin' &&
+        if (pathname === '/school.html' && current.user.role !== 'site_admin' &&
             current.user.schoolMemberships.length === 0)
           return json({ error: 'Membership required' }, 403, current.cookies);
         const page = secureAsset(await env.ASSETS.fetch(request), true);
