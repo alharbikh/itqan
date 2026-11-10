@@ -101,7 +101,7 @@ async function handler(req) {
     return json({error:'Forbidden'},403);
   if(!uuid(body.user_id)||actor===body.user_id||
     !['temporary','email'].includes(body.mode)||typeof body.reason!=='string'||
-    body.reason.trim().length<3||body.reason.length>500||
+    body.reason.trim().length<10||body.reason.length>500||
     Object.keys(body).some(k=>!['action','user_id','reason','mode'].includes(k)))
     return json({error:'Invalid administrative request'},400);
   const target=await call('/rest/v1/users?select=id,status&id=eq.'+encodeURIComponent(body.user_id));
