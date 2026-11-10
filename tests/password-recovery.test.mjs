@@ -63,7 +63,7 @@ test('recovery request hides whether an account exists and never returns auth to
 test('recovery rejects invalid input before contacting Supabase',async()=>{
   const m=mock();try{
     const r=await worker.fetch(request('/api/password/recovery/complete',
-      {email:'member@example.test',code:'123456',password:'short'}),ENV);
+      {email:'member@example.test',code:'123456',password:'tiny'}),ENV);
     assert.equal(r.status,400);assert.equal(m.events.length,0);
   }finally{m.restore()}
 });
@@ -167,4 +167,13 @@ test('new client code never uses browser alert, prompt or confirm dialogs',()=>{
   const recovery=readFileSync(new URL('../public/recover.html',import.meta.url),'utf8');
   const password=readFileSync(new URL('../public/password.html',import.meta.url),'utf8');
   for(const s of [app,recovery,password])assert.doesNotMatch(s,/window\.(alert|prompt|confirm)\s*\(/);
+});
+
+test('six-character password passes initial recovery validation and reaches Edge',async()=>{
+  const m=mock();try{
+    const r=await worker.fetch(request('/api/password/recovery/complete',
+      {email:'member@example.test',code:'123456',password:'abc123'}),ENV);
+    assert.equal(r.status,200);
+    assert.ok(m.events.some(e=>e.path==='/functions/v1/itqan-account-recovery'));
+  }finally{m.restore()}
 });
