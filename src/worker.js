@@ -1005,35 +1005,61 @@ function secureAsset(response, privatePage = false) {
   if (privatePage) modified.headers.set('cache-control', 'private, no-store');
   return modified;
 }
+// Serve a small access page at the requested URL. No query data and no redirect loop.
+async function accessDeniedPage(request,env,reason,cookies=[]){
+  const page=await env.ASSETS.fetch(new Request(new URL('/access.html',request.url),request));
+  if(!page.ok || (page.status>=300&&page.status<400))throw new Error('Access page unavailable');
+  const kind=['login','forbidden','membership'].includes(reason)?reason:'unavailable';
+  const html=(await page.text()).replace('data-access-state="default"',
+    'data-access-state="'+kind+'"');
+  const response=new Response(request.method==='HEAD'?null:html,{
+    status:kind==='login'?401:403,headers:headers('text/html; charset=utf-8')});
+  for(const cookie of cookies)response.headers.append('set-cookie',cookie);
+  return response;
+}
+async function explicitHtmlAsset(request,env,path,privatePage=false){
+  const response=await env.ASSETS.fetch(new Request(new URL(path,request.url),request));
+  if(!response.ok)throw new Error('HTML asset unavailable: '+path);
+  return secureAsset(response,privatePage);
+}
+function publicHtmlPath(pathname){
+  if(pathname==='/')return '/index.html';
+  const match=pathname.match(/^\/(index|login|register|access)(?:\.html|\/)?$/);
+  return match?'/'+match[1]+'.html':null;
+}
 export default {
   async fetch(request, env) {
     const pathname = new URL(request.url).pathname;
     try {
       const target=protectedRoute(pathname);
-      if (env.PREVIEW_ONLY === 'true') {
-        if (pathname.startsWith(API_PREFIX) || target)
+      if(env.PREVIEW_ONLY==='true'){
+        if(pathname.startsWith(API_PREFIX)||target)
           return json({error:'هذه الصفحة غير متاحة في المعاينة البصرية',code:'PREVIEW_ONLY'},403);
-        if (pathname === '/admin-preview.html')
+        if(pathname==='/admin-preview.html')
           return secureAsset(await env.ASSETS.fetch(request),true);
-      } else if (pathname === '/admin-preview.html') {
+      }else if(pathname==='/admin-preview.html'){
         return json({error:'الصفحة غير موجودة',code:'NOT_FOUND'},404);
       }
-      if (pathname.startsWith(API_PREFIX)) return await api(request,env,pathname);
-      if (target) {
-        if (request.method!=='GET'&&request.method!=='HEAD')
+      if(pathname.startsWith(API_PREFIX))return await api(request,env,pathname);
+      if(target){
+        if(request.method!=='GET'&&request.method!=='HEAD')
           return json({error:'طريقة الطلب غير مسموحة',code:'METHOD_NOT_ALLOWED'},405);
         const current=await session(request,env);
-        if (!current.user)
-          return redirect('/access.html?reason=login&section='+target.section,current.cookies);
-        if (['admin','frameworks'].includes(target.section)&&current.user.role!=='site_admin')
-          return redirect('/access.html?reason=forbidden&section='+target.section,current.cookies);
-        if (target.section==='school'&&current.user.role!=='site_admin'&&
+        if(!current.user)return accessDeniedPage(request,env,'login',current.cookies);
+        if(['admin','frameworks'].includes(target.section)&&current.user.role!=='site_admin')
+          return accessDeniedPage(request,env,'forbidden',current.cookies);
+        if(target.section==='school'&&current.user.role!=='site_admin'&&
             current.user.schoolMemberships.length===0)
-          return redirect('/access.html?reason=membership&section=school',current.cookies);
-        const assetRequest=new Request(new URL(target.asset,request.url),request);
-        const page=secureAsset(await env.ASSETS.fetch(assetRequest),true);
-        for(const value of current.cookies)page.headers.append('set-cookie',value);
+          return accessDeniedPage(request,env,'membership',current.cookies);
+        const page=await explicitHtmlAsset(request,env,target.asset,true);
+        for(const cookie of current.cookies)page.headers.append('set-cookie',cookie);
         return page;
+      }
+      const publicPage=publicHtmlPath(pathname);
+      if(publicPage){
+        if(publicPage==='/access.html'&&new URL(request.url).search)return redirect('/access');
+        return explicitHtmlAsset(request,env,publicPage,
+          publicPage==='/access.html'||publicPage==='/login.html');
       }
       return secureAsset(await env.ASSETS.fetch(request));
     } catch {
