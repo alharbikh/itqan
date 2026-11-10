@@ -11,7 +11,7 @@ const ADMIN_KEY = keyFrom(secretKeys) || legacyKey || '';
 const PUBLIC_KEY = keyFrom(publishableKeys) || Deno.env.get('SUPABASE_ANON_KEY') || '';
 const uuid = x => typeof x === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(x);
 const emailValid = x => typeof x === 'string' && x.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x);
-const passwordValid = x => typeof x === 'string' && x.length >= 8 && x.length <= 1024;
+const passwordValid = x => typeof x === 'string' && x.length >= 6 && x.length <= 1024;
 const json = (data, status=200) => Response.json(data,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
 async function call(path, method='GET', body, key=ADMIN_KEY,
                     bearer=key.startsWith('sb_')?null:key) {
