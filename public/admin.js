@@ -163,15 +163,12 @@ function openPasswordReset(user){
   $('password-reset-output').hidden=true;$('password-reset-once').value='';
   $('password-reset-submit').hidden=false;
   $('password-reset-user-name').textContent='الحساب: '+(user.full_name||user.id);
-  $('password-reset-submit').textContent='إنشاء كلمة مرور مؤقتة';
   $('password-reset-dialog').showModal();$('password-reset-reason').focus();
 }
 async function submitPasswordReset(e){
   e.preventDefault();
   if(!passwordResetUser)return;
-  const button=$('password-reset-submit');
-  if(button.disabled||button.hidden||!$('password-reset-output').hidden)return;
-  button.disabled=true;
+  const button=$('password-reset-submit');button.disabled=true;
   $('password-reset-error').hidden=true;
   try{
     const result=await api('/api/admin/users/password','POST',{
@@ -182,7 +179,7 @@ async function submitPasswordReset(e){
     else{notice(result.message||'تم إرسال تعليمات الاستعادة إلى البريد المسجل.','success');
       closePasswordReset();return;}
     button.hidden=true;
-    try{await loadAudit();}catch{ /* Password reset already succeeded; audit refresh is best effort. */ }
+    await loadAudit();
   }catch(error){
     $('password-reset-error').textContent=error.message||'تعذر إعادة الضبط.';
     $('password-reset-error').hidden=false;
@@ -487,7 +484,3 @@ async function start() {
 }
 document.addEventListener('DOMContentLoaded',start);
 })();
-$('password-reset-mode')?.addEventListener('change',()=>{
-  $('password-reset-submit').textContent=$('password-reset-mode').value==='email'
-    ?'إرسال رمز الاستعادة':'إنشاء كلمة مرور مؤقتة';
-});
