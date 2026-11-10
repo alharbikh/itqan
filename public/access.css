@@ -1,10 +1,34 @@
-.access-wrap{display:grid;place-items:center;min-height:calc(100vh - 160px);padding:clamp(22px,6vw,65px) 18px}
-.access-card{background:#fff;width:min(100%,590px);border:1px solid #dce9eb;box-shadow:0 22px 65px #075b6412;border-radius:22px;padding:clamp(22px,5vw,42px);text-align:center}
-.access-symbol{margin:0 auto 14px;display:grid;place-items:center;width:58px;height:58px;border-radius:17px;background:#e8f5f3;color:#075b64;font-size:2rem;font-weight:900}
-.access-card h1{font-size:clamp(1.45rem,4vw,2rem);line-height:1.5;margin:5px 0 12px;color:#173c48}
-.access-description{font-size:1rem;line-height:2;margin:0 0 16px}
-.access-destination{font-size:.9rem;color:#526b75;background:#f5f9fa;border:1px solid #dfeaec;border-radius:12px;padding:10px}
-.access-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:25px 0 10px}
-.access-actions a{min-width:145px}
-.access-help{font-size:.82rem;color:#647b83;margin:18px 0 0}
-@media(max-width:520px){.access-actions{flex-direction:column}.access-actions a{width:100%}}
+/* Compact access guidance: red for unauthorized, amber for a missing prerequisite. */
+.access-page{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;background:#f4f7f8}
+.access-page header{flex:0 0 auto}
+.access-wrap{display:flex;flex:1 1 auto;min-height:0;align-items:center;justify-content:center;padding:14px 16px}
+.access-card{width:min(100%,510px);padding:22px 25px 24px;border-radius:20px;text-align:center;background:#fff;
+ border:1px solid #dce9eb;box-shadow:0 12px 42px #123b5010}
+.access-symbol{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 11px;
+ border-radius:15px;background:#eef1f5;color:#465c68;font-size:1.7rem;font-weight:900;line-height:1}
+.access-eyebrow{color:#667c88;font-size:.86rem;font-weight:800;margin:0 0 5px}
+.access-card h1{font-size:clamp(1.35rem,3.4vw,1.7rem);line-height:1.5;margin:0 0 8px;color:#163847}
+.access-description{font-size:.92rem;line-height:1.8;margin:0;color:#587080}
+.access-description[hidden]{display:none}
+.access-actions{display:flex;gap:8px;align-items:stretch;justify-content:center;flex-wrap:wrap;margin-top:19px}
+.access-actions .button,.access-actions .primary{font-size:.86rem;min-height:43px;min-width:120px;padding:9px 13px}
+.access-page footer{flex:0 0 auto;padding:9px 12px;font-size:.74rem}
+.access-page[data-access-state="login"] .access-symbol{color:#9a6416;background:#fff2db}
+.access-page[data-access-state="login"] .access-eyebrow{color:#93601c}
+.access-page[data-access-state="forbidden"] .access-symbol{color:#a9353a;background:#feeced}
+.access-page[data-access-state="forbidden"] .access-eyebrow{color:#a9353a}
+.access-page[data-access-state="membership"] .access-symbol{color:#a56a19;background:#fff3df}
+.access-page[data-access-state="membership"] .access-eyebrow{color:#956020}
+@media(max-width:550px){
+ .access-wrap{padding:12px}
+ .access-card{padding:18px 15px}
+ .access-actions{gap:8px}
+ .access-actions .button,.access-actions .primary{flex:1 1 100px;min-width:0;padding:8px}
+}
+@media(max-height:640px){
+ .access-wrap{padding:8px 12px}
+ .access-card{padding:13px 18px}
+ .access-symbol{width:42px;height:42px;margin-bottom:7px}
+ .access-actions{margin-top:12px}
+ .access-page footer{padding:5px 10px}
+}
