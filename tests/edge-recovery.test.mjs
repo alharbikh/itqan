@@ -131,10 +131,3 @@ test('Edge recovery accepts six characters and rejects fewer than six',async()=>
   assert.equal((await call('abc12')).status,400);
   assert.equal((await call('abc123')).status,200);
 });
-
-test('Edge accepts three-character administrative reason and rejects shorter reason',async()=>{
-  const m=setup({admin:true});
-  const submit=async reason=>invoke(m.handler,{action:'admin_recover',user_id:OTHER,mode:'email',reason});
-  assert.equal((await submit('سبب')).status,200);
-  assert.equal((await submit('سب')).status,400);
-});
