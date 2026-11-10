@@ -567,6 +567,120 @@ async function api(request, env, pathname) {
     return r.ok?json({ok:true,feedback:r.data?.[0]},201,current.cookies):
        json({error:'Unable to save midpoint feedback'},422,current.cookies);
   }
+  // #17 Private evidence attachments: file bytes pass through the BFF, never through browser-held JWTs.
+  if(pathname==='/api/evidence/attachments' ||
+     /^\/api\/evidence\/attachments\/[0-9a-f-]{36}(?:\/download)?$/i.test(pathname)){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const uuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(x);
+    const bucket='itqan-personal-evidence';
+    const {base,key}=environment(env);
+    const authHeaders={apikey:key,authorization:'Bearer '+current.token};
+    const userId=current.user.id;
+    const url=new URL(request.url);
+    const schoolId=url.searchParams.get('school_id');
+    const isPrincipal=schoolId&&current.user.schoolMemberships.some(
+      m=>m.school_id===schoolId&&m.access_role==='school_principal');
+    const match=pathname.match(/^\/api\/evidence\/attachments\/([0-9a-f-]{36})(?:\/(download))?$/i);
+    if(schoolId&&!isPrincipal)return json({error:'Forbidden'},403,current.cookies);
+    const rowFor=async id=>{
+      const r=await backend(env,'/rest/v1/personal_evidence_attachments?select=id,evidence_id,user_id,object_name,original_filename,mime_type,byte_size&deleted_at=is.null&id=eq.'+
+        encodeURIComponent(id)+'&limit=1','GET',undefined,current.token);
+      return r.ok?(r.data?.[0]||null):null;
+    };
+    if(!match&&request.method==='GET'){
+      const evidenceId=url.searchParams.get('evidence_id');
+      if(!uuid(evidenceId))return json({error:'Invalid evidence id'},400,current.cookies);
+      const result=await backend(env,'/rest/v1/personal_evidence_attachments?select=id,evidence_id,user_id,original_filename,mime_type,byte_size,created_at&deleted_at=is.null&evidence_id=eq.'+
+        encodeURIComponent(evidenceId)+'&order=created_at.desc&limit=50','GET',undefined,current.token);
+      return result.ok?json({attachments:result.data},200,current.cookies):
+        json({error:'Unable to read attachments'},502,current.cookies);
+    }
+    if(match&&match[2]==='download'&&request.method==='GET'){
+      const record=await rowFor(match[1]);
+      if(!record)return json({error:'Attachment not found'},404,current.cookies);
+      if(record.user_id!==userId&&!isPrincipal)return json({error:'Forbidden'},403,current.cookies);
+      const segments=record.object_name.split('/').map(encodeURIComponent).join('/');
+      const upstream=await fetch(base+'/storage/v1/object/authenticated/'+bucket+'/'+segments,{
+        method:'GET',headers:authHeaders
+      });
+      if(!upstream.ok)return json({error:'Attachment not available'},upstream.status===404?404:502,current.cookies);
+      const responseHeaders=headers(record.mime_type);
+      responseHeaders.set('content-disposition',"attachment; filename*=UTF-8''"+encodeURIComponent(record.original_filename));
+      responseHeaders.set('content-length',String(record.byte_size));
+      const answer=new Response(upstream.body,{status:200,headers:responseHeaders});
+      for(const cookie of current.cookies)answer.headers.append('set-cookie',cookie);
+      return answer;
+    }
+    if(match&&!match[2]&&request.method==='DELETE'){
+      const record=await rowFor(match[1]);
+      if(!record)return json({error:'Attachment not found'},404,current.cookies);
+      if(record.user_id!==userId)return json({error:'Forbidden'},403,current.cookies);
+      const removed=await fetch(base+'/storage/v1/object/'+bucket,{
+        method:'DELETE',headers:{...authHeaders,'content-type':'application/json'},
+        body:JSON.stringify({prefixes:[record.object_name]})
+      });
+      if(!removed.ok)return json({error:'Unable to remove stored file'},502,current.cookies);
+      const result=await backend(env,'/rest/v1/personal_evidence_attachments?id=eq.'+
+        encodeURIComponent(record.id),'DELETE',undefined,current.token);
+      return result.ok?json({ok:true},200,current.cookies):
+        json({error:'File removed but metadata cleanup failed'},502,current.cookies);
+    }
+    if(!match&&request.method==='POST'){
+      const max=5*1024*1024;
+      const length=Number(request.headers.get('content-length')||0);
+      if(length>max+100000)return json({error:'File exceeds the 5 MB limit'},413,current.cookies);
+      if(!request.headers.get('content-type')?.toLowerCase().startsWith('multipart/form-data'))
+        return json({error:'Expected a file upload'},415,current.cookies);
+      let form;
+      try{form=await request.formData();}catch{return json({error:'Invalid file upload'},400,current.cookies);}
+      const evidenceId=form.get('evidence_id'),file=form.get('file');
+      if(!uuid(evidenceId)||!(file instanceof File)||file.size===0||file.size>max)
+        return json({error:'Invalid evidence or file size'},file instanceof File&&file.size>max?413:400,current.cookies);
+      const original=String(file.name||'').replace(/[\\/\u0000-\u001f\u007f]/g,'').trim();
+      if(!original||original.length>200)return json({error:'Invalid filename'},400,current.cookies);
+      const extension=original.split('.').pop()?.toLowerCase();
+      const types={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',
+        webp:'image/webp',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
+      const mime=types[extension];
+      if(!mime||!['',mime,'application/octet-stream'].includes(file.type))
+        return json({error:'Unsupported file format'},415,current.cookies);
+      const head=new Uint8Array(await file.slice(0,16).arrayBuffer());
+      const ascii=(start,end)=>String.fromCharCode(...head.slice(start,end));
+      const valid=extension==='pdf'?ascii(0,5)==='%PDF-':
+        extension==='png'?head[0]===137&&ascii(1,4)==='PNG':
+        ['jpg','jpeg'].includes(extension)?head[0]===255&&head[1]===216&&head[2]===255:
+        extension==='webp'?ascii(0,4)==='RIFF'&&ascii(8,12)==='WEBP':
+        head[0]===80&&head[1]===75&&head[2]===3&&head[3]===4;
+      if(!valid)return json({error:'File content does not match its type'},415,current.cookies);
+      const own=await backend(env,'/rest/v1/personal_evidence?select=id&id=eq.'+
+        encodeURIComponent(evidenceId)+'&user_id=eq.'+encodeURIComponent(userId)+'&limit=1',
+        'GET',undefined,current.token);
+      if(!own.ok||!own.data?.length)return json({error:'Evidence is not owned by your account'},403,current.cookies);
+      const existing=await backend(env,'/rest/v1/personal_evidence_attachments?select=id&evidence_id=eq.'+
+        encodeURIComponent(evidenceId)+'&deleted_at=is.null&limit=50','GET',undefined,current.token);
+      if(!existing.ok)return json({error:'Unable to check evidence quota'},502,current.cookies);
+      if(existing.data.length>=50)return json({error:'Maximum 50 attachments per evidence'},409,current.cookies);
+      const id=crypto.randomUUID();
+      const objectName=userId+'/'+evidenceId+'/'+id+'.'+(extension==='jpeg'?'jpg':extension);
+      const objectUrl=base+'/storage/v1/object/'+bucket+'/'+objectName.split('/').map(encodeURIComponent).join('/');
+      const uploaded=await fetch(objectUrl,{method:'POST',
+        headers:{...authHeaders,'content-type':mime,'x-upsert':'false'},body:file});
+      if(!uploaded.ok)return json({error:'Storage upload denied or unavailable'},uploaded.status===403?403:502,current.cookies);
+      const saved=await backend(env,'/rest/v1/personal_evidence_attachments?select=id,evidence_id,original_filename,mime_type,byte_size,created_at',
+        'POST',{id,evidence_id:evidenceId,user_id:userId,object_name:objectName,original_filename:original,
+          mime_type:mime,byte_size:file.size},current.token,{Prefer:'return=representation'});
+      if(!saved.ok||!saved.data?.length){
+        try{await fetch(base+'/storage/v1/object/'+bucket,{method:'DELETE',
+          headers:{...authHeaders,'content-type':'application/json'},body:JSON.stringify({prefixes:[objectName]})});}
+        catch{/* orphan cleanup may require storage maintenance */}
+        return json({error:'Unable to record attachment'},502,current.cookies);
+      }
+      return json({attachment:saved.data[0]},201,current.cookies);
+    }
+    return json({error:'Method not allowed'},405,current.cookies);
+  }
   // #15: personal evidence is shared only after an explicit employee action.
   if(pathname==='/api/evidence/share'&&['POST','DELETE'].includes(request.method)){
     const current=await session(request,env);
