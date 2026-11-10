@@ -163,10 +163,36 @@ async function load(school){
   if(state.school!==school)return;
   state.requests=data.requests||[];state.profiles=data.profiles||[];
   state.years=catalog.years||[];state.jobs=catalog.jobs||[];state.operations=operations||[];
+  for(const [id,options,empty] of [
+   ['personnel-direct-year',state.years.map(x=>({id:x.id,label:x.label})),'اختر العام الدراسي'],
+   ['personnel-direct-job',state.jobs.map(x=>({id:x.id,label:x.title_ar})),'غير محدد']
+  ]){
+   const el=$(id);if(!el)continue;const remembered=el.value;
+   el.replaceChildren(new Option(empty,''));
+   for(const o of options)el.add(new Option(o.label,o.id));
+   if(remembered&&options.some(x=>x.id===remembered))el.value=remembered;
+  }
   renderProfiles();renderRequests();renderOperations();
  }catch(err){notice(err.message,true);}
 }
 document.addEventListener('DOMContentLoaded',()=>{
+ const direct=$('personnel-direct-form');
+ if(direct)direct.addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!state.school||!confirm('هل تحققت من هوية الموظف وبياناته الوظيفية قبل إنشاء الملف المعتمد؟'))return;
+  const submit=direct.querySelector('button[type=submit]');submit.disabled=true;
+  try{
+   await api('/api/personnel/direct','POST',{
+    school_id:state.school,year_id:$('personnel-direct-year').value,
+    full_name:$('personnel-direct-name').value.trim(),
+    national_id:$('personnel-direct-national').value.trim(),
+    employee_number:$('personnel-direct-number').value.trim(),
+    job_title_id:$('personnel-direct-job').value||null,
+    specialization:$('personnel-direct-specialization').value.trim()||null});
+   notice('أُنشئ الملف المعتمد. لا يُفعّل حساب الموظف إلا بإجراء الارتباط المعتمد.');
+   direct.reset();await load(state.school);
+  }catch(e){notice(e.message,true);}finally{submit.disabled=false;}
+ });
  const form=$('personnel-operation-form');
  if(form)form.addEventListener('submit',async event=>{
   event.preventDefault();
