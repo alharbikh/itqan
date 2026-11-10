@@ -19,6 +19,56 @@ async function call(path, method = 'GET', data) {
 }
 async function init() {
   const view = document.body.dataset.view;
+  if(view==='recover'){
+    const requestForm=$('recovery-request-form'),complete=$('recovery-complete-form');
+    requestForm.addEventListener('submit',async e=>{
+      e.preventDefault();const button=requestForm.querySelector('button[type="submit"]');button.disabled=true;
+      try{
+        const result=await call('/api/password/recovery/request','POST',{email:$('email').value.trim()});
+        show(result.message,'success');
+      }catch(error){show(error.message||'تعذر إرسال الطلب.','error')}
+      finally{button.disabled=false;}
+    });
+    complete.addEventListener('submit',async e=>{
+      e.preventDefault();
+      if($('password').value!==$('password-confirm').value){show('تأكيد كلمة المرور لا يطابق الكلمة الجديدة.','error');return}
+      const button=complete.querySelector('button[type="submit"]');button.disabled=true;
+      try{
+        const result=await call('/api/password/recovery/complete','POST',
+          {email:$('email').value.trim(),code:$('code').value.trim(),password:$('password').value});
+        show('تم تغيير كلمة المرور بنجاح. يجري فتح حسابك.','success');
+        location.assign(result.user.role==='site_admin'?'/admin.html':
+          result.user.schoolMemberships?.length?'/school.html':'/link.html');
+      }catch(error){show(error.message||'تعذر إكمال الاستعادة.','error')}
+      finally{button.disabled=false;}
+    });
+    return;
+  }
+  if(view==='password'){
+    let mustChange=false,role=null;
+    try{
+      const result=await call('/api/session');mustChange=result.user.mustChangePassword===true;role=result.user.role;
+      if(mustChange){
+        $('current-password-label').hidden=true;
+        $('password-guidance').textContent='أنت تستخدم كلمة مرور مؤقتة. يجب إنشاء كلمة مرور جديدة قبل متابعة استخدام المنصة.';
+      }else{$('current-password').required=true;}
+    }catch{show('يلزم تسجيل الدخول أولًا لتغيير كلمة المرور.','error');
+      $('password-change-form').hidden=true;return}
+    $('password-change-form').addEventListener('submit',async e=>{
+      e.preventDefault();
+      if($('password').value!==$('password-confirm').value){show('تأكيد كلمة المرور لا يطابق كلمة المرور الجديدة.','error');return}
+      const button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;
+      try{
+        await call('/api/password/change','POST',{password:$('password').value,
+          ...(mustChange?{}:{current_password:$('current-password').value})});
+        show('تم تغيير كلمة المرور بنجاح.','success');
+        $('password-change-form').reset();
+        if(mustChange)location.assign(role==='site_admin'?'/admin.html':'/link.html');
+      }catch(error){show(error.message||'تعذر تغيير كلمة المرور.','error')}
+      finally{button.disabled=false;}
+    });
+    return;
+  }
   if (view === 'login' || view === 'register') {
     const form = $('account-form');
     form?.addEventListener('submit', async event => {
@@ -34,6 +84,7 @@ async function init() {
           show('تم استلام التسجيل. تحقّق من بريدك الإلكتروني وانتظر اعتماد العضوية.', 'success');
         } else {
           const result = await call('/api/login', 'POST', { email, password });
+          if(result.user.mustChangePassword){location.assign('/password.html');return;}
           const next=new URLSearchParams(location.search).get('next');
           const permitted=['/admin.html','/frameworks.html','/school.html','/performance.html','/link.html'];
           window.location.assign(permitted.includes(next)?next:
