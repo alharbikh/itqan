@@ -99,11 +99,12 @@ test('Edge removes only its own forced-password metadata after verified change',
   const m=setup({forced:true});
   const r=await invoke(m.handler,{action:'change_forced',password:'long-new-password',current_password:'old-temporary'});
   assert.equal(r.status,200);
-  const change=m.calls.find(c=>c.path==='/auth/v1/user'&&c.method==='PUT');
-  const clear=m.calls.find(c=>c.path==='/auth/v1/admin/users/'+ID&&c.method==='PUT');
-  assert.ok(change&&clear);
-  assert.equal(clear.body.app_metadata.provider,'email');
-  assert.equal(clear.body.app_metadata.itqan_force_password_change,undefined);
+  const update=m.calls.find(c=>c.path==='/auth/v1/admin/users/'+ID&&c.method==='PUT');
+  assert.ok(update);
+  assert.equal(update.body.password,'long-new-password');
+  assert.equal(update.body.app_metadata.provider,'email');
+  assert.equal(update.body.app_metadata.itqan_force_password_change,undefined);
+  assert.equal(m.calls.some(c=>c.path==='/auth/v1/user'&&c.method==='PUT'),false);
 });
 
 test('valid recovery code resets password and removes forced-change flag in one admin update',async()=>{
