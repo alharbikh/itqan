@@ -1,45 +1,35 @@
 (() => {
 'use strict';
-const params=new URLSearchParams(location.search);
-const sections={
- admin:['لوحة مدير الموقع','/admin.html'],
- frameworks:['إدارة المعايير والأوزان','/frameworks.html'],
- school:['مساحة المدرسة','/school.html'],
- performance:['الأداء الوظيفي والشواهد','/performance.html'],
- link:['ربط الحساب بالملف الوظيفي','/link.html'],
+const body=document.body;
+const allowed=new Set(['login','forbidden','membership','unavailable']);
+let reason=body.dataset.accessState;
+if(!allowed.has(reason)){
+ try{
+  reason=sessionStorage.getItem('itqan_access_state')||'unavailable';
+  sessionStorage.removeItem('itqan_access_state');
+ }catch{reason='unavailable';}
+}
+if(!allowed.has(reason))reason='unavailable';
+const messages={
+ login:{eyebrow:'تسجيل الدخول مطلوب',title:'يرجى تسجيل الدخول أولًا',
+   message:'سجّل الدخول للمتابعة.',label:'تسجيل الدخول',href:'/login.html'},
+ forbidden:{eyebrow:'وصول غير مصرح به',title:'ليس لديك صلاحية للوصول',
+   message:'',label:'تسجيل الدخول بحساب آخر',href:'/login.html'},
+ membership:{eyebrow:'ارتباط المدرسة مطلوب',title:'يلزم ربط حسابك بمدرسة',
+   message:'',label:'طلب ربط الحساب',href:'/link.html'},
+ unavailable:{eyebrow:'تعذر التحقق من الوصول',title:'تعذر فتح الصفحة حاليًا',
+   message:'حاول مرة أخرى لاحقًا.',label:'تسجيل الدخول',href:'/login.html'}
 };
-const targets={
- login:{
-  eyebrow:'تسجيل الدخول مطلوب',title:'يرجى تسجيل الدخول أولًا',
-  message:'هذه الصفحة مخصصة للحسابات المسجلة. سجّل الدخول ثم حاول فتح الصفحة مرة أخرى.',
-  action:'تسجيل الدخول',help:'لن تظهر البيانات أو الأوامر الخاصة قبل التحقق من الجلسة.'
- },
- forbidden:{
-  eyebrow:'صلاحية غير متاحة',title:'ليس لديك إذن لفتح هذه الصفحة',
-  message:'حسابك مسجل، لكن الصلاحيات الحالية لا تسمح بعرض هذا القسم أو تنفيذ أوامره.',
-  action:'العودة إلى الصفحة الرئيسية',help:'يمكن لمدير الموقع تعديل الصلاحيات المصرح بها، عند الحاجة.'
- },
- membership:{
-  eyebrow:'ارتباط المدرسة مطلوب',title:'لا توجد عضوية مدرسة نشطة',
-  message:'يلزم اعتماد ارتباط حسابك بمدرسة قبل الدخول إلى هذا القسم.',
-  action:'طلب ربط الحساب',help:'تبقى مكتبتك الشخصية للشواهد متاحة حتى دون ارتباط مدرسي.'
- },
- unavailable:{
-  eyebrow:'الخدمة غير متاحة مؤقتًا',title:'تعذر التحقق من الجلسة الآن',
-  message:'حدث خطأ في الاتصال بخدمة الحسابات. أعد المحاولة بعد التحقق من الاتصال.',
-  action:'إعادة المحاولة',help:'لم نعرض بيانات خاصة دون التحقق من الصلاحيات.'
- },
-};
-const section=Object.hasOwn(sections,params.get('section'))?params.get('section'):'admin';
-const reason=Object.hasOwn(targets,params.get('reason'))?params.get('reason'):'forbidden';
-const data=targets[reason];
+const data=messages[reason];
+body.dataset.accessState=reason;
 document.getElementById('access-eyebrow').textContent=data.eyebrow;
 document.getElementById('access-title').textContent=data.title;
-document.getElementById('access-message').textContent=data.message;
-document.getElementById('access-destination').textContent='القسم المطلوب: '+sections[section][0];
-document.getElementById('access-help').textContent=data.help;
+const description=document.getElementById('access-message');
+description.textContent=data.message;description.hidden=!data.message;
 const primary=document.getElementById('access-primary');
-primary.textContent=data.action;
-primary.href=reason==='login'?'/login.html?next='+encodeURIComponent(sections[section][1]):
- reason==='membership'?'/link.html':reason==='unavailable'?sections[section][1]:'/index.html';
+primary.textContent=data.label;primary.href=data.href;
+document.getElementById('access-back').addEventListener('click',()=>{
+ if(history.length>1)history.back();
+ else location.assign('/index.html');
+});
 })();
