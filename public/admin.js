@@ -172,9 +172,13 @@ async function submitPasswordReset(e){
   $('password-reset-error').hidden=true;
   try{
     const result=await api('/api/admin/users/password','POST',{
-      user_id:passwordResetUser.id,reason:$('password-reset-reason').value.trim()});
-    $('password-reset-once').value=result.temporary_password;
-    $('password-reset-output').hidden=false;button.hidden=true;
+      user_id:passwordResetUser.id,reason:$('password-reset-reason').value.trim(),
+      mode:$('password-reset-mode').value});
+    if(result.temporary_password){$('password-reset-once').value=result.temporary_password;
+      $('password-reset-output').hidden=false;}
+    else{notice(result.message||'تم إرسال تعليمات الاستعادة إلى البريد المسجل.','success');
+      closePasswordReset();return;}
+    button.hidden=true;
     await loadAudit();
   }catch(error){
     $('password-reset-error').textContent=error.message||'تعذر إعادة الضبط.';
