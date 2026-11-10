@@ -269,7 +269,8 @@ async function api(request, env, pathname) {
     const body=await input(request);
     if(!body||!uuidValid(body.user_id)||body.user_id===current.user.id||
        typeof body.reason!=='string'||body.reason.trim().length<10||body.reason.length>500||
-       Object.keys(body).some(k=>!['user_id','reason'].includes(k)))
+       (body.mode!==undefined && !['temporary','email'].includes(body.mode))||
+       Object.keys(body).some(k=>!['user_id','reason','mode'].includes(k)))
       return json({error:'اختر حسابًا آخر واكتب سببًا إداريًا لا يقل عن 10 أحرف.',code:'INVALID_ADMIN_RESET'},400,current.cookies);
     const target=await backend(env,'/rest/v1/users?select=id,status&id=eq.'+encodeURIComponent(body.user_id),
       'GET',undefined,current.token);
@@ -279,13 +280,22 @@ async function api(request, env, pathname) {
     try{identity=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(body.user_id));}
     catch{return json({error:'لم يتم إعداد مفتاح الإدارة الخادمي.',code:'ADMIN_CONFIG_MISSING'},503,current.cookies);}
     if(!identity.ok)return json({error:'تعذر التحقق من حساب المصادقة.',code:'AUTH_USER_UNAVAILABLE'},502,current.cookies);
-    // Record who approved the intervention before changing the credential.
+    const emailMode=body.mode==='email';
+    // Record who approved the intervention before modifying credentials or sending recovery mail.
     const audit=await privileged(env,'/rest/v1/site_admin_audit','POST',{
-      actor_user_id:current.user.id,operation:'user.password.temporary_attempt',
+      actor_user_id:current.user.id,
+      operation:emailMode?'user.password.recovery_email':'user.password.temporary_attempt',
       target_type:'user',target_id:body.user_id,
-      details:{reason:body.reason.trim(),method:'temporary_password'}
+      details:{reason:body.reason.trim(),method:emailMode?'recovery_email':'temporary_password'}
     });
-    if(!audit.ok)return json({error:'تعذر تسجيل عملية التدقيق؛ لم تُغيّر كلمة المرور.',code:'AUDIT_FAILED'},502,current.cookies);
+    if(!audit.ok)return json({error:'تعذر تسجيل عملية التدقيق؛ لم يُنفذ الاسترداد.',code:'AUDIT_FAILED'},502,current.cookies);
+    if(emailMode){
+      const email=identity.data?.user?.email||identity.data?.email;
+      if(!emailValid(email))return json({error:'لا يوجد بريد صالح لهذا الحساب.',code:'TARGET_EMAIL_UNAVAILABLE'},422,current.cookies);
+      const sent=await backend(env,'/auth/v1/recover','POST',{email});
+      if(!sent.ok)return json({error:'تعذر إرسال رمز الاستعادة. تحقق من إعداد البريد أو حاول لاحقًا.',code:'RECOVERY_EMAIL_FAILED'},sent.status===429?429:502,current.cookies);
+      return json({ok:true,message:'تم إرسال طلب الاستعادة إلى البريد المسجل لهذا الحساب.'},200,current.cookies);
+    }
     const password=temporaryPassword();
     const app={...(identity.data?.user?.app_metadata||identity.data?.app_metadata||{}),
       itqan_force_password_change:true,
