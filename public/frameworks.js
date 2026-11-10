@@ -6,7 +6,8 @@ async function api(path,method='GET',body){const res=await fetch(path,{method,cr
  const data=await res.json().catch(()=>({}));
  if(!res.ok){
   if(res.status===401||res.status===403){
-   location.replace('/access.html?reason='+(res.status===401?'login':'forbidden')+'&section=frameworks');
+   try{sessionStorage.setItem('itqan_access_state',res.status===401?'login':'forbidden');}catch{}
+   location.replace('/access');
   }
   throw Error(data.error||'تعذر تنفيذ العملية. تحقق من الاتصال وصلاحيات الحساب.');
  }
