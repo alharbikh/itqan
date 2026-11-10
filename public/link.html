@@ -6,13 +6,20 @@
 <header><div class="top"><a class="brand" href="/index.html"><span class="logo">إ</span><span>إتقان سمارت برو</span></a>
 <nav><a href="/school.html">مساحة المدرسة</a><a href="/performance.html">ملف الأداء</a><a href="/password.html">أمان الحساب</a></nav></div></header>
 <main class="perf-wrap"><div class="perf-head"><div><span class="eyebrow">إدارة الارتباط</span>
-<h1>طلب ربط حسابك بالملف الوظيفي</h1><p>احصل على معرف الملف من مدير المدرسة ثم قدم الطلب. الموافقة لا تتم إلا من المدير المخول.</p></div></div>
+<h1>طلب ربط حسابك بالملف الوظيفي</h1><p>اختر المدرسة وقدّم بياناتك الأساسية للمراجعة. يعتمد مدير المدرسة الملف والارتباط بعد التحقق من الهوية.</p></div></div>
 <div id="message" class="alert" role="status" aria-live="polite" hidden></div>
-<section class="perf-section"><h2>طلب جديد</h2>
-<form id="request-form" class="perf-grid"><label>معرف الملف الوظيفي
-<input id="school-employee-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" required></label>
-<div><button type="submit">إرسال طلب الارتباط</button></div></form></section>
-<section class="perf-section"><h2>طلباتك السابقة</h2><div id="requests" class="perf-list"></div></section>
+<section class="perf-section"><h2>طلب إنشاء ملف وظيفي والارتباط بالمدرسة</h2>
+<p>اختر مدرستك وأدخل بياناتك الأساسية. يراجع مدير المدرسة الطلب ويتحقق من الهوية قبل اعتماد الملف والارتباط. لن تُنشأ عضوية تلقائيًا بمجرد إرسال الطلب.</p>
+<form id="request-form" class="perf-grid">
+<label>المدرسة المطلوبة <select id="request-school" required><option value="">جارٍ تحميل المدارس…</option></select></label>
+<label>الاسم الرباعي <input id="request-name" minlength="2" maxlength="200" autocomplete="name" required></label>
+<label>رقم الهوية أو الإقامة <input id="request-national" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required></label>
+<label>المسمى الوظيفي <select id="request-job"><option value="">غير محدد</option></select></label>
+<label>التخصص (اختياري) <input id="request-specialization" maxlength="120"></label>
+<div><button type="submit">إرسال الطلب إلى مدير المدرسة</button></div>
+</form></section>
+<section class="perf-section"><h2>طلبات الملفات الوظيفية</h2><div id="personnel-requests" class="perf-list"></div></section>
+<section class="perf-section"><h2>طلبات الارتباط السابقة عبر النظام القديم</h2><div id="requests" class="perf-list"></div></section>
 <section class="perf-section"><h2>استكمال تقييم مجمد بصفة استثنائية</h2>
 <p>يُستخدم فقط بواسطة المقيم السابق وبعد اعتماد استثناء محدد المدة من جهة مخولة مستقلة عنه.</p>
 <form id="exception-form" class="perf-grid">
@@ -26,4 +33,4 @@
 <form id="unlink-form" class="perf-grid"><label>سبب فك الارتباط
 <input id="reason" required minlength="3" maxlength="500" placeholder="مثل: الانتقال إلى مدرسة أخرى"></label>
 <div><button type="submit">فك الارتباط بعد التأكيد</button></div></form></section>
-</main><footer>لن يُنقل سجل المدرسة السابقة إلى المدرسة الجديدة تلقائيًا.</footer></body></html>
+</main><footer>تبقى الملفات والسجلات المدرسية التاريخية في مدرستها الأصلية.</footer></body></html>
