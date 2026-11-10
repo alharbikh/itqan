@@ -516,6 +516,8 @@ async function api(request, env, pathname) {
       return rpc('itqan_personnel_school_catalog',{});
     if(pathname==='/api/personnel/my-requests'&&request.method==='GET')
       return rpc('itqan_personnel_my_requests',{});
+    if(pathname==='/api/personnel/my-profiles'&&request.method==='GET')
+      return rpc('itqan_personnel_my_profiles',{});
     if(pathname==='/api/personnel/requests'&&request.method==='POST'){
       const b=await input(request);
       if(!b||!uuid(b.school_id)||typeof b.full_name!=='string'||
