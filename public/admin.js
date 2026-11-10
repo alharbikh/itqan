@@ -328,7 +328,7 @@ async function loadAudit(){
     const labels={'school.create':'إنشاء مدرسة','school.update':'تعديل مدرسة','school.delete':'حذف مدرسة','school.status':'تعديل حالة مدرسة',
       'membership.upsert':'تحديث عضوية','user.status':'تعديل حالة حساب',
       'user.role.grant':'منح مدير الموقع','user.role.revoke':'سحب مدير الموقع',
-      'user.password.temporary':'إنشاء كلمة مرور مؤقتة'};
+      'user.password.temporary_attempt':'محاولة إعادة ضبط دخول'};
     for(const item of state.audit){
       const tr=document.createElement('tr');
       const actor=state.users.find(x=>x.id===item.actor_user_id);
