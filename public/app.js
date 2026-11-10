@@ -34,11 +34,9 @@ async function init() {
       if($('password').value!==$('password-confirm').value){show('تأكيد كلمة المرور لا يطابق الكلمة الجديدة.','error');return}
       const button=complete.querySelector('button[type="submit"]');button.disabled=true;
       try{
-        const result=await call('/api/password/recovery/complete','POST',
+        await call('/api/password/recovery/complete','POST',
           {email:$('email').value.trim(),code:$('code').value.trim(),password:$('password').value});
-        show('تم تغيير كلمة المرور بنجاح. يجري فتح حسابك.','success');
-        location.assign(result.user.role==='site_admin'?'/admin.html':
-          result.user.schoolMemberships?.length?'/school.html':'/link.html');
+        location.replace('/login.html?password_updated=1');
       }catch(error){show(error.message||'تعذر إكمال الاستعادة.','error')}
       finally{button.disabled=false;}
     });
@@ -62,15 +60,16 @@ async function init() {
       try{
         await call('/api/password/change','POST',{password:$('password').value,
           current_password:$('current-password').value});
-        show('تم تغيير كلمة المرور بنجاح.','success');
         $('password-change-form').reset();
-        if(mustChange)location.assign(role==='site_admin'?'/admin.html':'/link.html');
+        location.replace('/login.html?password_updated=1');
       }catch(error){show(error.message||'تعذر تغيير كلمة المرور.','error')}
       finally{button.disabled=false;}
     });
     return;
   }
   if (view === 'login' || view === 'register') {
+    if(view==='login'&&new URLSearchParams(location.search).get('password_updated')==='1')
+      show('تم تحديث كلمة المرور بنجاح. سجّل الدخول بكلمة المرور الجديدة.','success');
     const form = $('account-form');
     form?.addEventListener('submit', async event => {
       event.preventDefault();
