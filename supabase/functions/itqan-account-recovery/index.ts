@@ -50,8 +50,10 @@ async function handler(req) {
     const account=identity.data?.user||identity.data;
     if(!identity.ok||account?.id!==user.data.id)return json({error:'Account unavailable'},502);
     const app={...(account.app_metadata||{})};
-    delete app.itqan_force_password_change;
-    delete app.itqan_temp_password_expires_at;
+    // GoTrue merges app_metadata, so omitting the old keys does not clear existing flags.
+    // Persist explicit false/null values to unlock accounts after a verified password change.
+    app.itqan_force_password_change = false;
+    app.itqan_temp_password_expires_at = null;
     const changed=await call('/auth/v1/admin/users/'+encodeURIComponent(user.data.id),'PUT',
       {password:body.password,app_metadata:app});
     if(!changed.ok)return json({error:'Password rejected'},422);
@@ -88,8 +90,10 @@ async function handler(req) {
     if(account.app_metadata?.itqan_force_password_change!==true)
       return json({error:'Temporary password already changed'},409);
     const app={...(account.app_metadata||{})};
-    delete app.itqan_force_password_change;
-    delete app.itqan_temp_password_expires_at;
+    // GoTrue merges app_metadata, so omitting the old keys does not clear existing flags.
+    // Persist explicit false/null values to unlock accounts after a verified password change.
+    app.itqan_force_password_change = false;
+    app.itqan_temp_password_expires_at = null;
     const changed=await call('/auth/v1/admin/users/'+encodeURIComponent(actor),'PUT',
       {password:body.password,app_metadata:app});
     if(!changed.ok)return json({error:'Password change rejected'},422);
