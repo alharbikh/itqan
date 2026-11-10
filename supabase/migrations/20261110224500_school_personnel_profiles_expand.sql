@@ -63,7 +63,8 @@ create table public.school_personnel_requests (
   constraint school_personnel_request_decision_consistency check (
     (status = 'approved' and approved_profile_id is not null and
       reviewed_by is not null and decision_at is not null)
-    or (status = 'rejected' and decision_at is not null and reviewed_by is not null)\n    or (status = 'cancelled' and approved_profile_id is null)
+    or (status = 'rejected' and decision_at is not null and reviewed_by is not null)
+    or (status = 'cancelled' and approved_profile_id is null)
     or (status not in ('approved','rejected','cancelled') and
       approved_profile_id is null and decision_at is null)
   ),
