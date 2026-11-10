@@ -204,15 +204,16 @@ async function api(request, env, pathname) {
     if(!body||!emailValid(body.email)||typeof body.code!=='string'||!/^[0-9]{6,8}$/.test(body.code)||
        !validPassword(body.password)||Object.keys(body).some(k=>!['email','code','password'].includes(k)))
       return json({error:'تحقق من البريد والرمز، واستخدم كلمة مرور من 8 أحرف على الأقل.',code:'INVALID_RESET'},400);
-    const verified=await backend(env,'/auth/v1/verify','POST',
-      {type:'recovery',email:body.email.trim(),token:body.code});
-    if(!verified.ok||!verified.data?.access_token||!verified.data?.refresh_token)
-      return json({error:'رمز الاستعادة غير صحيح أو انتهت صلاحيته.',code:'INVALID_RECOVERY_CODE'},400);
-    const changed=await backend(env,'/auth/v1/user','PUT',{password:body.password},verified.data.access_token);
-    if(!changed.ok)return json({error:'تعذر تغيير كلمة المرور. تحقق من سياسة الأمان.',code:'PASSWORD_REJECTED'},422);
-    const user=await verifiedUser(env,verified.data.access_token);
+    const completed=await backend(env,'/functions/v1/itqan-account-recovery','POST',
+      {action:'complete_recovery',email:body.email.trim(),code:body.code,password:body.password});
+    if(!completed.ok||!completed.data?.access_token||!completed.data?.refresh_token)
+      return json({error:completed.status===400?'رمز الاستعادة غير صحيح أو انتهت صلاحيته.':
+        'تعذر استكمال الاستعادة. تحقق من كلمة المرور أو حاول لاحقًا.',
+        code:completed.status===400?'INVALID_RECOVERY_CODE':'RECOVERY_FAILED'},
+        completed.status===400?400:502);
+    const user=await verifiedUser(env,completed.data.access_token);
     if(!user)return json({error:'تعذر تفعيل جلسة الحساب.',code:'ACCOUNT_INACTIVE'},403);
-    return json({ok:true,user},200,tokensCookies(verified.data));
+    return json({ok:true,user},200,tokensCookies(completed.data));
   }
   if(pathname==='/api/password/change' && request.method==='POST'){
     const current=await session(request,env,true);
