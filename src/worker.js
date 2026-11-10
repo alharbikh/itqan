@@ -246,10 +246,10 @@ async function api(request, env, pathname) {
     if(current.user.role!=='site_admin')return json({error:'Forbidden'},403,current.cookies);
     const body=await input(request);
     if(!body||!uuidValid(body.user_id)||body.user_id===current.user.id||
-       typeof body.reason!=='string'||body.reason.trim().length<3||body.reason.length>500||
+       typeof body.reason!=='string'||body.reason.trim().length<10||body.reason.length>500||
        (body.mode!==undefined&&!['temporary','email'].includes(body.mode))||
        Object.keys(body).some(k=>!['user_id','reason','mode'].includes(k)))
-      return json({error:'اختر حسابًا آخر واكتب سببًا إداريًا لا يقل عن 3 أحرف.',code:'INVALID_ADMIN_RESET'},400,current.cookies);
+      return json({error:'اختر حسابًا آخر واكتب سببًا إداريًا لا يقل عن 10 أحرف.',code:'INVALID_ADMIN_RESET'},400,current.cookies);
     const result=await backend(env,'/functions/v1/itqan-account-recovery','POST',
       {action:'admin_recover',user_id:body.user_id,reason:body.reason.trim(),
        mode:body.mode||'temporary'},current.token);
