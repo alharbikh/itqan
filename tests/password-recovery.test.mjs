@@ -194,3 +194,11 @@ test('admin password modal protects temporary credential from casual screenshots
   assert.match(html,/id="password-reset-once" type="password"/);
   assert.match(html,/class="password-reset-body"/);
 });
+
+test('reset dialog hides submit action after issuing one-time password',()=>{
+  const css=readFileSync(new URL('../public/admin.css',import.meta.url),'utf8');
+  const js=readFileSync(new URL('../public/admin.js',import.meta.url),'utf8');
+  assert.match(css,/#password-reset-submit\[hidden\]/);
+  assert.match(js,/button\.hidden=true/);
+  assert.match(js,/button\.disabled\|\|button\.hidden\|\|!\$\('password-reset-output'\)\.hidden/);
+});
