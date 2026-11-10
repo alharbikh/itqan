@@ -169,9 +169,9 @@ async function refresh(){
     link.target='_blank';link.textContent='فتح الرابط';box.append(link);}
   }
   if(!sharedList.children.length)item(sharedList,'لم يشارك الموظفون شواهد شخصية مع المدرسة.');
-  const requests=await api('/api/school/review-exceptions?school_id='+encodeURIComponent(state.school));
+  const exceptionRequests=await api('/api/school/review-exceptions?school_id='+encodeURIComponent(state.school));
   const list=$('exception-requests-list');list.replaceChildren();
-  for(const x of requests.exceptions||[]){
+  for(const x of exceptionRequests.exceptions||[]){
    const box=item(list,'المقيم السابق: '+x.requested_by,'التقييم: '+x.review_id,
     'الحالة: '+x.status,'السبب: '+x.reason);
    if(x.status==='pending'&&x.requested_by!==state.user.id){
