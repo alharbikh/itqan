@@ -132,7 +132,7 @@ test('temporary password prevents access until user changes it',async()=>{
 });
 test('forced change updates password and clears only application forced-change metadata',async()=>{
   const m=mock({forced:true});try{
-    const r=await worker.fetch(request('/api/password/change',{password:'some-new-secure-password'},cookies),ENV);
+    const r=await worker.fetch(request('/api/password/change',{password:'some-new-secure-password',current_password:'one-time-admin-password'},cookies),ENV);
     assert.equal(r.status,200);
     const reset=m.events.find(x=>x.path==='/auth/v1/admin/users/'+ID && x.method==='PUT');
     assert.ok(reset);assert.equal(reset.body.app_metadata.itqan_force_password_change,undefined);
