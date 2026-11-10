@@ -55,8 +55,8 @@ async function handler(req) {
     const changed=await call('/auth/v1/admin/users/'+encodeURIComponent(user.data.id),'PUT',
       {password:body.password,app_metadata:app});
     if(!changed.ok)return json({error:'Password rejected'},422);
-    return json({ok:true,access_token:verified.data.access_token,
-      refresh_token:verified.data.refresh_token,expires_in:verified.data.expires_in});
+    // Force a fresh login with the new password; recovery-session tokens never leave this service.
+    return json({ok:true});
   }
   const bearer=req.headers.get('authorization')||'';
   if(!/^Bearer \S+$/.test(bearer))return json({error:'Unauthorized'},401);
