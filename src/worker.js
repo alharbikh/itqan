@@ -9,6 +9,11 @@ function protectedRoute(path) {
   return match?{section:match[1],asset:'/'+match[1]+'.html'}:null;
 }
 const SESSION_MAX_AGE = 60 * 60;
+const DEFAULT_PASSWORD_MIN_LENGTH = 4; // App-level preference; Supabase Auth may enforce a higher minimum.
+function passwordMinLength(env) {
+  const chosen=Number(env.PASSWORD_MIN_LENGTH ?? DEFAULT_PASSWORD_MIN_LENGTH);
+  return Number.isInteger(chosen)&&chosen>=4&&chosen<=32?chosen:DEFAULT_PASSWORD_MIN_LENGTH;
+}
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 14;
 
 function headers(contentType = 'application/json; charset=utf-8') {
@@ -22,6 +27,10 @@ function headers(contentType = 'application/json; charset=utf-8') {
   });
 }
 function json(value, status = 200, cookies = []) {
+  if(value&&typeof value==='object'&&value.error==='Unauthorized')
+    value={...value,error:'يلزم تسجيل الدخول للمتابعة.',code:value.code||'AUTH_REQUIRED'};
+  else if(value&&typeof value==='object'&&value.error==='Forbidden')
+    value={...value,error:'لا تملك صلاحية تنفيذ هذا الإجراء.',code:value.code||'ACCESS_FORBIDDEN'};
   const response = new Response(JSON.stringify(value), { status, headers: headers() });
   for (const cookie of cookies) response.headers.append('set-cookie', cookie);
   return response;
@@ -186,13 +195,26 @@ async function api(request, env, pathname) {
     const body = await input(request);
     if (!body || typeof body.email !== 'string' || typeof body.password !== 'string' ||
         typeof body.name !== 'string' || body.name.trim().length < 2 ||
-        !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.email) ||
-        body.password.length < 12 || body.password.length > 1024) return json({ error: 'Invalid registration' }, 400);
+        !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.email))
+      return json({error:'تحقق من الاسم والبريد الإلكتروني.',code:'INVALID_REGISTRATION'},400);
+    if(body.password.length<passwordMinLength(env)||body.password.length>1024)
+      return json({error:'كلمة المرور يجب أن تتكون من '+passwordMinLength(env)+' أحرف على الأقل.',
+        code:'PASSWORD_TOO_SHORT',field:'password',min_length:passwordMinLength(env)},400);
     const response = await backend(env, '/auth/v1/signup', 'POST', {
       email: body.email.trim(), password: body.password,
       data: { full_name: body.name.trim().slice(0, 200) },
     });
-    if (!response.ok) return json({ error: 'Unable to register account' }, 400);
+    if (!response.ok) {
+      const text=(response.data?.msg||response.data?.message||'').toLowerCase();
+      const weak=response.data?.error_code==='weak_password'||/password.*(least|length|short|weak)/.test(text);
+      const duplicate=/already registered|already exists|user already/.test(text);
+      return json({error:weak
+        ?'لم تقبل خدمة Supabase Auth طول كلمة المرور. إعداداتها الحالية قد تتطلب 6 أحرف أو أكثر، حتى لو كان الحد في إتقان 4 أحرف. استخدم كلمة أطول لحين مواءمة إعدادات المصادقة.'
+        :duplicate?'هذا البريد مسجل مسبقًا. استخدم صفحة تسجيل الدخول.'
+        :'تعذر إنشاء الحساب. تحقق من البريد الإلكتروني أو حاول مرة أخرى.',
+        code:weak?'AUTH_PASSWORD_POLICY':duplicate?'EMAIL_ALREADY_REGISTERED':'REGISTRATION_FAILED',
+        ...(weak?{field:'password'}:{})},weak?422:400);
+    }
     return json({ message: 'Check your email and await school access approval.' }, 202);
   }
   if (pathname === '/api/logout' && request.method === 'POST') {
