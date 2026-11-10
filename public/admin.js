@@ -12,6 +12,10 @@ function notice(message, type='info') {
   box.hidden = false;
   box.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
+function openAccessPage(reason){
+  try{sessionStorage.setItem('itqan_access_state',reason);}catch{}
+  location.replace('/access');
+}
 function clearNotice() { $('message').hidden=true; }
 async function api(path, method='GET', body) {
   const response = await fetch(path, {
@@ -333,7 +337,7 @@ async function refresh() {
   } catch (error) {
     $('stat-connection').textContent='تعذر الاتصال';
     if(error.status===401||error.status===403){
-      location.replace('/access.html?reason='+(error.status===401?'login':'forbidden')+'&section=admin');
+      openAccessPage(error.status===401?'login':'forbidden');
       return;
     }
     notice('تعذر تحميل بيانات الإدارة: '+error.message,'error');
@@ -418,13 +422,13 @@ async function start() {
   navRender();
   try {
     const {user}=await api('/api/session');
-    if (user.role!=='site_admin') {notice('لا تملك صلاحية مدير الموقع.','error');return;}
+    if (user.role!=='site_admin') {openAccessPage('forbidden');return;}
     $('top-user-name').textContent=user.name||'مدير الموقع';
     await refresh();
     await loadAudit();
   } catch (error) {
     if(error.status===401||error.status===403){
-      location.replace('/access.html?reason='+(error.status===401?'login':'forbidden')+'&section=admin');
+      openAccessPage(error.status===401?'login':'forbidden');
       return;
     }
     notice('تعذر التحقق من حساب مدير الموقع: '+(error.message||'اتصال الخدمة غير متاح')+'.','error');
