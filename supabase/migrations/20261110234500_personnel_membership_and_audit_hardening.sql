@@ -156,3 +156,6 @@ create trigger itqan_personnel_request_event_after_change
  for each row execute function itqan_private.personnel_request_event_audit();
 
 revoke truncate on public.school_memberships from authenticated;
+
+revoke all on function itqan_private.personnel_request_audit() from public,anon,authenticated;
+revoke all on function itqan_private.personnel_request_event_audit() from public,anon,authenticated;
