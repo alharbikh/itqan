@@ -9,7 +9,7 @@ async function api(path,method='GET',body){
   ...(body===undefined?{}:{headers:{'content-type':'application/json'},body:JSON.stringify(body)})});
  const result=await response.json().catch(()=>({}));
  if(!response.ok)throw Error(result.error||'تعذر تنفيذ الطلب');
- return result.result;
+ return Object.prototype.hasOwnProperty.call(result,'result')?result.result:result;
 }
 function elem(tag,text,cls){const node=document.createElement(tag);node.textContent=String(text??'');if(cls)node.className=cls;return node;}
 function notice(message,error=false){const e=$('personnel-message');e.textContent=message;e.className='alert '+(error?'error':'success');e.hidden=false;}
