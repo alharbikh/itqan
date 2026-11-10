@@ -120,20 +120,70 @@ async function decision(r,action){
   notice('تم تنفيذ الإجراء.');await load(state.school);
  }catch(err){notice(err.message,true);}
 }
+async function operationAction(op,action,decisionValue){
+ try{
+  if(!confirm(action==='execute'?'تنفيذ العملية بعد اكتمال الموافقات؟':
+     decisionValue==='approved'?'اعتماد مشاركة الحقول المحددة؟':'رفض مشاركة البيانات؟'))return;
+  const body=action==='execute'?
+    {action:'execute',operation_id:op.id}:
+    {action:'decide',operation_id:op.id,approval_type:'source_school_owner',decision:decisionValue};
+  await api('/api/personnel/operations','POST',body);
+  notice('تم تحديث عملية النقل أو النسخ.');await load(state.school);
+ }catch(e){notice(e.message,true);}
+}
+function renderOperations(){
+ const list=$('personnel-operations-list');list.replaceChildren();
+ for(const op of state.operations||[]){
+  const box=elem('article','','personnel-request');
+  box.append(elem('strong',(op.operation_type==='transfer'?'نقل':'نسخ')+' — '+op.status));
+  box.append(elem('p','من '+op.source_school_name+' إلى '+op.target_school_name));
+  box.append(elem('p','رقم الموظف المستهدف: '+op.target_employee_number));
+  box.append(elem('p','الحقول المختارة: '+(op.selected_fields||[]).join('، ')));
+  box.append(elem('p','موافقة صاحب الملف: '+(op.subject_approved?'تمت':'معلقة')+
+   ' — موافقة المدرسة المصدر: '+(op.source_approved?'تمت':'معلقة')));
+  const actions=elem('div','','personnel-actions');
+  const btn=(label,handler)=>{const b=elem('button',label,'button');b.type='button';b.addEventListener('click',handler);actions.append(b);};
+  if(op.source_school_id===state.school&&op.status==='pending'&&!op.source_approved){
+   btn('الموافقة بصفتك مدير المدرسة المصدر',()=>operationAction(op,'decide','approved'));
+   btn('رفض مشاركة البيانات',()=>operationAction(op,'decide','rejected'));
+  }
+  if(op.target_school_id===state.school&&op.status==='approved')
+   btn('تنفيذ النقل / النسخ',()=>operationAction(op,'execute'));
+  box.append(actions);list.append(box);
+ }
+ if(!list.children.length)list.append(elem('p','لا توجد عمليات نسخ أو نقل.','personnel-empty'));
+}
 async function load(school){
  if(!school)return;
  state.school=school;
  try{
-  const [data,catalog]=await Promise.all([
+  const [data,catalog,operations]=await Promise.all([
    api('/api/personnel/admin?school_id='+encodeURIComponent(school)),
-   api('/api/catalog')]);
+   api('/api/catalog'),api('/api/personnel/operations?school_id='+encodeURIComponent(school))]);
   if(state.school!==school)return;
   state.requests=data.requests||[];state.profiles=data.profiles||[];
-  state.years=catalog.years||[];state.jobs=catalog.jobs||[];
-  renderProfiles();renderRequests();
+  state.years=catalog.years||[];state.jobs=catalog.jobs||[];state.operations=operations||[];
+  renderProfiles();renderRequests();renderOperations();
  }catch(err){notice(err.message,true);}
 }
 document.addEventListener('DOMContentLoaded',()=>{
+ const form=$('personnel-operation-form');
+ if(form)form.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const source=$('personnel-source-id').value.trim();
+  const number=$('personnel-target-number').value.trim();
+  const fields=['full_name_snapshot',
+   ...[...form.querySelectorAll('input[type=checkbox]:checked:not([disabled])')].map(x=>x.value)];
+  if(!confirm('سيُرسل طلب المشاركة إلى صاحب الملف ومدير المدرسة المصدر. لن تُنقل البيانات قبل موافقتهما.'))return;
+  const submit=form.querySelector('button[type=submit]');submit.disabled=true;
+  try{
+   await api('/api/personnel/operations','POST',{action:'start',
+    source_profile_id:source,target_school_id:state.school,
+    employee_number:number,operation_type:$('personnel-operation-type').value,selected_fields:fields});
+   notice('تم إنشاء طلب النقل أو النسخ، وهو بانتظار الموافقات.');
+   form.reset();await load(state.school);
+  }catch(e){notice(e.message,true);}finally{submit.disabled=false;}
+ });
  for(const b of document.querySelectorAll('[data-personnel-tab]'))b.addEventListener('click',()=>tab(b.dataset.personnelTab));
  tab('profiles');
 });
