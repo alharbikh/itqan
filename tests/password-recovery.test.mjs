@@ -102,6 +102,17 @@ test('admin reset audits first and returns a temporary password once without cha
     assert.equal(reset.body.app_metadata.itqan_force_password_change,true);
   }finally{m.restore()}
 });
+test('admin may send an audited recovery email without changing credentials',async()=>{
+  const m=mock({role:'site_admin'});try{
+    const r=await worker.fetch(request('/api/admin/users/password',
+      {user_id:OTHER,reason:'تم التحقق من هوية صاحب الحساب',mode:'email'},cookies),ENV);
+    assert.equal(r.status,200);
+    const result=await r.json();assert.equal(result.temporary_password,undefined);
+    assert.equal(m.events.find(x=>x.path==='/rest/v1/site_admin_audit').body.operation,'user.password.recovery_email');
+    assert.ok(m.events.find(x=>x.path==='/auth/v1/recover'));
+    assert.equal(m.events.some(x=>x.path==='/auth/v1/admin/users/'+OTHER&&x.method==='PUT'),false);
+  }finally{m.restore()}
+});
 test('failed audit blocks administrative password change',async()=>{
   const m=mock({role:'site_admin',auditOk:false});try{
     const r=await worker.fetch(request('/api/admin/users/password',
