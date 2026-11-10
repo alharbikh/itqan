@@ -15,6 +15,16 @@ function passwordMinLength(env) {
   return Number.isInteger(chosen)&&chosen>=4&&chosen<=32?chosen:DEFAULT_PASSWORD_MIN_LENGTH;
 }
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 14;
+const RESET_MIN_LENGTH = 8;
+const emailValid = value => typeof value==='string' && value.length<=254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
+const validPassword = value => typeof value==='string' && value.length>=RESET_MIN_LENGTH && value.length<=1024;
+const uuidValid = value => typeof value==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+function temporaryPassword(){
+  const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const bytes=new Uint8Array(24);crypto.getRandomValues(bytes);
+  return [...bytes].map(n=>alphabet[n%alphabet.length]).join('');
+}
+
 
 function headers(contentType = 'application/json; charset=utf-8') {
   return new Headers({
@@ -102,15 +112,16 @@ async function verifiedUser(env, accessToken) {
     id: user.id,
     name: user.full_name || auth.data.email || 'مستخدم',
     role: Array.isArray(roles.data) && roles.data.some(x => x.role_code === 'site_admin') ? 'site_admin' : 'member',
+    mustChangePassword: auth.data.app_metadata?.itqan_force_password_change === true,
     schoolMemberships: (Array.isArray(memberships.data) ? memberships.data : [])
       .filter(x => x.status === 'active').map(x => ({ school_id: x.school_id, access_role: x.access_role, job_role: x.job_role })),
   };
 }
-async function session(request, env) {
+async function session(request, env, allowPasswordChange = false) {
   const stored = readCookies(request);
   const access = stored[ACCESS_COOKIE];
   const user = await verifiedUser(env, access);
-  if (user) return { user, token: access, cookies: [] };
+  if (user) return { user: user.mustChangePassword && !allowPasswordChange ? null : user, token: access, cookies: [] };
   const refresh = stored[REFRESH_COOKIE];
   if (!refresh) return { user: null, cookies: clearedCookies() };
   const updated = await backend(env, '/auth/v1/token?grant_type=refresh_token', 'POST',
@@ -119,7 +130,7 @@ async function session(request, env) {
     return { user: null, cookies: clearedCookies() };
   const refreshedUser = await verifiedUser(env, updated.data.access_token);
   if (!refreshedUser) return { user: null, cookies: clearedCookies() };
-  return { user: refreshedUser, token: updated.data.access_token, cookies: tokensCookies(updated.data) };
+  return { user: refreshedUser.mustChangePassword && !allowPasswordChange ? null : refreshedUser, token: updated.data.access_token, cookies: tokensCookies(updated.data) };
 }
 function sameOrigin(request) {
   const origin = request.headers.get('origin');
@@ -176,8 +187,106 @@ function schoolFailure(result,operation,cookies){
     code:'SCHOOL_WRITE_FAILED',reference:typeof code==='string'&&/^[A-Z0-9]{4,8}$/.test(code)?code:null},502,cookies);
 }
 
+async function privileged(env,path,method='GET',data){
+  const {base}=environment(env);
+  const key=String(env.SUPABASE_SERVICE_ROLE_KEY||'');
+  if(!key || key.length<32)throw Error('Privileged API not configured');
+  const response=await fetch(base+path,{method,headers:{apikey:key,authorization:'Bearer '+key,
+    'content-type':'application/json'},...(data===undefined?{}:{body:JSON.stringify(data)})});
+  let payload=null;try{payload=await response.json()}catch{}
+  return {ok:response.ok,status:response.status,data:payload};
+}
 async function api(request, env, pathname) {
   if (['POST','PATCH','PUT','DELETE'].includes(request.method) && !sameOrigin(request)) return json({ error: 'Forbidden' }, 403);
+  if(pathname==='/api/password/recovery/request' && request.method==='POST'){
+    const body=await input(request);
+    if(!body || !emailValid(body.email) || Object.keys(body).some(k=>k!=='email'))
+      return json({error:'أدخل بريدًا إلكترونيًا صحيحًا.',code:'INVALID_EMAIL'},400);
+    const result=await backend(env,'/auth/v1/recover','POST',{email:body.email.trim()});
+    if(result.status===429)return json({error:'تكررت المحاولات. حاول بعد قليل.',code:'RATE_LIMITED'},429);
+    // Deliberately identical response for unknown accounts and delivery failures.
+    return json({message:'إذا كان البريد مسجلًا فستصلك تعليمات الاستعادة.'},202);
+  }
+  if(pathname==='/api/password/recovery/complete' && request.method==='POST'){
+    const body=await input(request);
+    if(!body||!emailValid(body.email)||typeof body.code!=='string'||!/^[0-9]{6,8}$/.test(body.code)||
+       !validPassword(body.password)||Object.keys(body).some(k=>!['email','code','password'].includes(k)))
+      return json({error:'تحقق من البريد والرمز، واستخدم كلمة مرور من 8 أحرف على الأقل.',code:'INVALID_RESET'},400);
+    const verified=await backend(env,'/auth/v1/verify','POST',
+      {type:'recovery',email:body.email.trim(),token:body.code});
+    if(!verified.ok||!verified.data?.access_token||!verified.data?.refresh_token)
+      return json({error:'رمز الاستعادة غير صحيح أو انتهت صلاحيته.',code:'INVALID_RECOVERY_CODE'},400);
+    const changed=await backend(env,'/auth/v1/user','PUT',{password:body.password},verified.data.access_token);
+    if(!changed.ok)return json({error:'تعذر تغيير كلمة المرور. تحقق من سياسة الأمان.',code:'PASSWORD_REJECTED'},422);
+    const user=await verifiedUser(env,verified.data.access_token);
+    if(!user)return json({error:'تعذر تفعيل جلسة الحساب.',code:'ACCOUNT_INACTIVE'},403);
+    return json({ok:true,user},200,tokensCookies(verified.data));
+  }
+  if(pathname==='/api/password/change' && request.method==='POST'){
+    const current=await session(request,env,true);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const body=await input(request);
+    if(!body||!validPassword(body.password)||Object.keys(body).some(k=>!['password','current_password'].includes(k)))
+      return json({error:'استخدم كلمة مرور جديدة لا تقل عن 8 أحرف.',code:'INVALID_PASSWORD'},400,current.cookies);
+    if(!current.user.mustChangePassword){
+      if(typeof body.current_password!=='string'||!body.current_password)
+        return json({error:'أدخل كلمة المرور الحالية.',code:'CURRENT_PASSWORD_REQUIRED'},400,current.cookies);
+      const identity=await backend(env,'/auth/v1/user','GET',undefined,current.token);
+      if(!identity.ok||!emailValid(identity.data?.email))return json({error:'تعذر التحقق من الحساب.'},403,current.cookies);
+      const checked=await backend(env,'/auth/v1/token?grant_type=password','POST',
+        {email:identity.data.email,password:body.current_password});
+      if(!checked.ok)return json({error:'كلمة المرور الحالية غير صحيحة.',code:'CURRENT_PASSWORD_INVALID'},403,current.cookies);
+    }
+    const result=await backend(env,'/auth/v1/user','PUT',{password:body.password},current.token);
+    if(!result.ok)return json({error:'لم تقبل خدمة المصادقة كلمة المرور الجديدة.',code:'PASSWORD_REJECTED'},422,current.cookies);
+    if(current.user.mustChangePassword){
+      // Remove the forced-change flag using a server-only privileged credential.
+      let identity;
+      try{identity=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(current.user.id));}
+      catch{return json({error:'تعذر إكمال تحديث الحساب. تواصل مع مدير الموقع.',code:'ADMIN_CONFIG_MISSING'},503,current.cookies);}
+      if(!identity.ok)return json({error:'تعذر إنهاء حالة كلمة المرور المؤقتة.',code:'ADMIN_LOOKUP_FAILED'},502,current.cookies);
+      const app={...(identity.data?.app_metadata||{})};
+      delete app.itqan_force_password_change;
+      delete app.itqan_temp_password_expires_at;
+      const updated=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(current.user.id),
+        'PUT',{app_metadata:app});
+      if(!updated.ok)return json({error:'تعذر إكمال إلغاء إلزام تغيير كلمة المرور.',code:'FORCE_CHANGE_CLEAR_FAILED'},502,current.cookies);
+    }
+    return json({ok:true},200,current.cookies);
+  }
+  if(pathname==='/api/admin/users/password' && request.method==='POST'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    if(current.user.role!=='site_admin')return json({error:'Forbidden'},403,current.cookies);
+    const body=await input(request);
+    if(!body||!uuidValid(body.user_id)||body.user_id===current.user.id||
+       typeof body.reason!=='string'||body.reason.trim().length<10||body.reason.length>500||
+       Object.keys(body).some(k=>!['user_id','reason'].includes(k)))
+      return json({error:'اختر حسابًا آخر واكتب سببًا إداريًا لا يقل عن 10 أحرف.',code:'INVALID_ADMIN_RESET'},400,current.cookies);
+    const target=await backend(env,'/rest/v1/users?select=id,status&id=eq.'+encodeURIComponent(body.user_id),
+      'GET',undefined,current.token);
+    if(!target.ok||!Array.isArray(target.data)||target.data.length!==1||target.data[0].status!=='active')
+      return json({error:'الحساب غير متاح لإعادة الضبط.',code:'TARGET_NOT_FOUND'},404,current.cookies);
+    let identity;
+    try{identity=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(body.user_id));}
+    catch{return json({error:'لم يتم إعداد مفتاح الإدارة الخادمي.',code:'ADMIN_CONFIG_MISSING'},503,current.cookies);}
+    if(!identity.ok)return json({error:'تعذر التحقق من حساب المصادقة.',code:'AUTH_USER_UNAVAILABLE'},502,current.cookies);
+    // Record who approved the intervention before changing the credential.
+    const audit=await privileged(env,'/rest/v1/site_admin_audit','POST',{
+      actor_user_id:current.user.id,operation:'user.password.temporary',
+      target_type:'user',target_id:body.user_id,
+      details:{reason:body.reason.trim(),method:'temporary_password'}
+    });
+    if(!audit.ok)return json({error:'تعذر تسجيل عملية التدقيق؛ لم تُغيّر كلمة المرور.',code:'AUDIT_FAILED'},502,current.cookies);
+    const password=temporaryPassword();
+    const app={...(identity.data?.app_metadata||{}),
+      itqan_force_password_change:true,
+      itqan_temp_password_expires_at:new Date(Date.now()+24*60*60*1000).toISOString()};
+    const result=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(body.user_id),'PUT',
+      {password,app_metadata:app});
+    if(!result.ok)return json({error:'تعذر تعيين كلمة المرور المؤقتة.',code:'TEMP_PASSWORD_FAILED'},502,current.cookies);
+    return json({ok:true,temporary_password:password,message:'تظهر كلمة المرور المؤقتة مرة واحدة فقط. سلّمها للمستخدم عبر قناة آمنة.'},200,current.cookies);
+  }
   if (pathname === '/api/login' && request.method === 'POST') {
     const body = await input(request);
     if (!body || typeof body.email !== 'string' || typeof body.password !== 'string' ||
@@ -189,6 +298,11 @@ async function api(request, env, pathname) {
       return json({ error: 'Invalid credentials' }, 401);
     const user = await verifiedUser(env, result.data.access_token);
     if (!user) return json({ error: 'Account not active' }, 403);
+    if(user.mustChangePassword){
+      const expiry=Date.parse(result.data?.user?.app_metadata?.itqan_temp_password_expires_at||'');
+      if(Number.isFinite(expiry)&&Date.now()>expiry)
+        return json({error:'انتهت صلاحية كلمة المرور المؤقتة. تواصل مع مدير الموقع.',code:'TEMP_PASSWORD_EXPIRED'},403);
+    }
     return json({ user }, 200, tokensCookies(result.data));
   }
   if (pathname === '/api/register' && request.method === 'POST') {
@@ -978,7 +1092,7 @@ async function api(request, env, pathname) {
     }))},200,current.cookies);
   }
   if ((pathname === '/api/session' || pathname === '/api/schools') && request.method === 'GET') {
-    const current = await session(request, env);
+    const current = await session(request, env, pathname==='/api/session');
     if (!current.user) return json({ error: 'Unauthorized' }, 401, current.cookies);
     if (pathname === '/api/session') return json({ user: current.user }, 200, current.cookies);
     if (current.user.role !== 'site_admin' && !current.user.schoolMemberships.length)
@@ -1024,7 +1138,7 @@ async function explicitHtmlAsset(request,env,path,privatePage=false){
 }
 function publicHtmlPath(pathname){
   if(pathname==='/')return '/index.html';
-  const match=pathname.match(/^\/(index|login|register|access)(?:\.html|\/)?$/);
+  const match=pathname.match(/^\/(index|login|register|access|recover|password)(?:\.html|\/)?$/);
   return match?'/'+match[1]+'.html':null;
 }
 export default {
@@ -1044,8 +1158,9 @@ export default {
       if(target){
         if(request.method!=='GET'&&request.method!=='HEAD')
           return json({error:'طريقة الطلب غير مسموحة',code:'METHOD_NOT_ALLOWED'},405);
-        const current=await session(request,env);
+        const current=await session(request,env,true);
         if(!current.user)return accessDeniedPage(request,env,'login',current.cookies);
+        if(current.user.mustChangePassword)return redirect('/password.html',current.cookies);
         if(['admin','frameworks'].includes(target.section)&&current.user.role!=='site_admin')
           return accessDeniedPage(request,env,'forbidden',current.cookies);
         if(target.section==='school'&&current.user.role!=='site_admin'&&
