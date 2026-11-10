@@ -6,7 +6,8 @@ async function api(path,method='GET',body){const r=await fetch(path,{method,cred
  const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'تعذر تنفيذ الطلب');return d;}
 async function refresh(){
  const data=await Promise.all([api('/api/session'),api('/api/school/link-requests'),
-  api('/api/personnel/my-requests'),api('/api/personnel/schools'),api('/api/catalog')]);
+  api('/api/personnel/my-requests'),api('/api/personnel/schools'),api('/api/catalog'),
+  api('/api/personnel/my-profiles'),api('/api/personnel/operations')]);
  const schoolList=$('request-school');const remembered=schoolList.value;
  schoolList.replaceChildren(new Option('اختر المدرسة',''));
  for(const school of data[3].result||[])schoolList.add(new Option(
@@ -28,6 +29,49 @@ async function refresh(){
  }
  if(!requested.children.length){const empty=document.createElement('div');empty.className='perf-note';
    empty.textContent='لا توجد طلبات ملفات وظيفية.';requested.append(empty);}
+
+ const profiles=$('personnel-profiles-owned');profiles.replaceChildren();
+ for(const profile of data[5].result||[]){
+   const item=document.createElement('div');item.className='perf-item';
+   const caption=document.createElement('strong');
+   caption.textContent=profile.school_name+' — رقم الموظف: '+profile.employee_number+
+    ' — الحالة: '+(profile.status==='active'?'حالي':'تاريخي');
+   const ref=document.createElement('code');ref.textContent=profile.id;
+   const copy=document.createElement('button');copy.type='button';copy.textContent='نسخ معرف الملف';
+   copy.addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText(profile.id);notice('نُسخ معرف الملف','success');}
+    catch{notice('تعذر النسخ تلقائيًا؛ يمكنك تحديد المعرف ونسخه.','error');}
+   });
+   item.append(caption,ref,copy);profiles.append(item);
+ }
+ if(!profiles.children.length){const e=document.createElement('div');e.className='perf-note';
+   e.textContent='ليس لديك ملف وظيفي مدرسي معتمد بعد.';profiles.append(e);}
+ const operations=$('personnel-operations-owned');operations.replaceChildren();
+ for(const op of data[6].result||[]){
+   const item=document.createElement('div');item.className='perf-item';
+   const summary=document.createElement('strong');
+   summary.textContent=(op.operation_type==='transfer'?'نقل':'نسخ')+' من '+op.source_school_name+' إلى '+op.target_school_name+
+     ' — '+op.status;
+   const fields=document.createElement('span');
+   fields.textContent='الحقول: '+(op.selected_fields||[]).join('، ')+
+     ' — موافقتك: '+(op.subject_approved?'مكتملة':'لم تصدر');
+   item.append(summary,fields);
+   if(op.status==='pending'&&!op.subject_approved){
+     for(const [value,title] of [['approved','أوافق على المشاركة'],['rejected','أرفض المشاركة']]){
+       const button=document.createElement('button');button.type='button';button.textContent=title;
+       button.onclick=async()=>{
+         if(!confirm(title+' للحقول الظاهرة أعلاه؟'))return;
+         try{await api('/api/personnel/operations','POST',{action:'decide',operation_id:op.id,
+           approval_type:'subject',decision:value});
+          notice('حُفظ قرار الموافقة.','success');await refresh();
+         }catch(err){notice(err.message,'error');}
+       };item.append(button);
+     }
+   }
+   operations.append(item);
+ }
+ if(!operations.children.length){const e=document.createElement('div');e.className='perf-note';
+  e.textContent='لا توجد طلبات نقل أو نسخ لملفاتك.';operations.append(e);}
 
  user=data[0].user;
  const target=$('requests');target.replaceChildren();
