@@ -188,15 +188,6 @@ function schoolFailure(result,operation,cookies){
     code:'SCHOOL_WRITE_FAILED',reference:typeof code==='string'&&/^[A-Z0-9]{4,8}$/.test(code)?code:null},502,cookies);
 }
 
-async function privileged(env,path,method='GET',data){
-  const {base}=environment(env);
-  const key=String(env.SUPABASE_SERVICE_ROLE_KEY||'');
-  if(!key || key.length<32)throw Error('Privileged API not configured');
-  const response=await fetch(base+path,{method,headers:{apikey:key,authorization:'Bearer '+key,
-    'content-type':'application/json'},...(data===undefined?{}:{body:JSON.stringify(data)})});
-  let payload=null;try{payload=await response.json()}catch{}
-  return {ok:response.ok,status:response.status,data:payload};
-}
 async function api(request, env, pathname) {
   if (['POST','PATCH','PUT','DELETE'].includes(request.method) && !sameOrigin(request)) return json({ error: 'Forbidden' }, 403);
   if(pathname==='/api/password/recovery/request' && request.method==='POST'){
@@ -230,38 +221,29 @@ async function api(request, env, pathname) {
     if(!body||!validPassword(body.password)||Object.keys(body).some(k=>!['password','current_password'].includes(k)))
       return json({error:'استخدم كلمة مرور جديدة لا تقل عن 8 أحرف.',code:'INVALID_PASSWORD'},400,current.cookies);
     if(typeof body.current_password!=='string'||!body.current_password)
-      return json({error:current.user.mustChangePassword?'أدخل كلمة المرور المؤقتة.':'أدخل كلمة المرور الحالية.',
-        code:'CURRENT_PASSWORD_REQUIRED'},400,current.cookies);
+      return json({error:'أدخل كلمة المرور الحالية أو المؤقتة.',code:'CURRENT_PASSWORD_REQUIRED'},400,current.cookies);
     if(body.password===body.current_password)
       return json({error:'يجب أن تختلف كلمة المرور الجديدة عن الحالية.',code:'PASSWORD_REUSED'},400,current.cookies);
+    if(current.user.mustChangePassword){
+      const result=await backend(env,'/functions/v1/itqan-account-recovery','POST',
+        {action:'change_forced',password:body.password,current_password:body.current_password},current.token);
+      if(!result.ok)
+        return json({error:result.data?.code==='TEMP_PASSWORD_EXPIRED'
+          ?'انتهت صلاحية كلمة المرور المؤقتة. اطلب إعادة ضبط جديدة.'
+          :result.status===403?'كلمة المرور المؤقتة غير صحيحة أو الحساب غير مؤهل.'
+          :'تعذر إكمال تغيير كلمة المرور المؤقتة.',code:result.data?.code||'FORCED_PASSWORD_CHANGE_FAILED'},
+          [400,401,403,422].includes(result.status)?result.status:502,current.cookies);
+      return json({ok:true},200,current.cookies);
+    }
     const identity=await backend(env,'/auth/v1/user','GET',undefined,current.token);
-    if(!identity.ok||!emailValid(identity.data?.email))return json({error:'تعذر التحقق من الحساب.'},403,current.cookies);
+    if(!identity.ok||!emailValid(identity.data?.email))
+      return json({error:'تعذر التحقق من الحساب.'},403,current.cookies);
     const checked=await backend(env,'/auth/v1/token?grant_type=password','POST',
       {email:identity.data.email,password:body.current_password});
-    if(!checked.ok)return json({error:'كلمة المرور الحالية أو المؤقتة غير صحيحة.',code:'CURRENT_PASSWORD_INVALID'},403,current.cookies);
-    let forcedIdentity=null;
-    if(current.user.mustChangePassword){
-      const expiry=Date.parse(current.user.temporaryExpiresAt||'');
-      if(Number.isFinite(expiry)&&Date.now()>expiry)
-        return json({error:'انتهت صلاحية كلمة المرور المؤقتة. اطلب إعادة ضبط جديدة.',code:'TEMP_PASSWORD_EXPIRED'},403,current.cookies);
-      // Verify privileged configuration before modifying the password.
-      try{forcedIdentity=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(current.user.id));}
-      catch{return json({error:'تعذر إكمال تحديث الحساب. تواصل مع مدير الموقع.',code:'ADMIN_CONFIG_MISSING'},503,current.cookies);}
-      if(!forcedIdentity.ok)return json({error:'تعذر التحقق من حالة الحساب المؤقتة.',code:'ADMIN_LOOKUP_FAILED'},502,current.cookies);
-    }
+    if(!checked.ok)return json({error:'كلمة المرور الحالية غير صحيحة.',code:'CURRENT_PASSWORD_INVALID'},403,current.cookies);
     const result=await backend(env,'/auth/v1/user','PUT',{password:body.password},current.token);
-    if(!result.ok)return json({error:'لم تقبل خدمة المصادقة كلمة المرور الجديدة.',code:'PASSWORD_REJECTED'},422,current.cookies);
-    if(current.user.mustChangePassword){
-      // Preserve all existing authorization metadata.
-      const identity=forcedIdentity;
-      const app={...(identity.data?.user?.app_metadata||identity.data?.app_metadata||{})};
-      delete app.itqan_force_password_change;
-      delete app.itqan_temp_password_expires_at;
-      const updated=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(current.user.id),
-        'PUT',{app_metadata:app});
-      if(!updated.ok)return json({error:'تعذر إكمال إلغاء إلزام تغيير كلمة المرور.',code:'FORCE_CHANGE_CLEAR_FAILED'},502,current.cookies);
-    }
-    return json({ok:true},200,current.cookies);
+    return result.ok?json({ok:true},200,current.cookies):
+      json({error:'لم تقبل خدمة المصادقة كلمة المرور الجديدة.',code:'PASSWORD_REJECTED'},422,current.cookies);
   }
   if(pathname==='/api/admin/users/password' && request.method==='POST'){
     const current=await session(request,env);
@@ -270,41 +252,16 @@ async function api(request, env, pathname) {
     const body=await input(request);
     if(!body||!uuidValid(body.user_id)||body.user_id===current.user.id||
        typeof body.reason!=='string'||body.reason.trim().length<10||body.reason.length>500||
-       (body.mode!==undefined && !['temporary','email'].includes(body.mode))||
+       (body.mode!==undefined&&!['temporary','email'].includes(body.mode))||
        Object.keys(body).some(k=>!['user_id','reason','mode'].includes(k)))
       return json({error:'اختر حسابًا آخر واكتب سببًا إداريًا لا يقل عن 10 أحرف.',code:'INVALID_ADMIN_RESET'},400,current.cookies);
-    const target=await backend(env,'/rest/v1/users?select=id,status&id=eq.'+encodeURIComponent(body.user_id),
-      'GET',undefined,current.token);
-    if(!target.ok||!Array.isArray(target.data)||target.data.length!==1||target.data[0].status!=='active')
-      return json({error:'الحساب غير متاح لإعادة الضبط.',code:'TARGET_NOT_FOUND'},404,current.cookies);
-    let identity;
-    try{identity=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(body.user_id));}
-    catch{return json({error:'لم يتم إعداد مفتاح الإدارة الخادمي.',code:'ADMIN_CONFIG_MISSING'},503,current.cookies);}
-    if(!identity.ok)return json({error:'تعذر التحقق من حساب المصادقة.',code:'AUTH_USER_UNAVAILABLE'},502,current.cookies);
-    const emailMode=body.mode==='email';
-    // Record who approved the intervention before modifying credentials or sending recovery mail.
-    const audit=await privileged(env,'/rest/v1/site_admin_audit','POST',{
-      actor_user_id:current.user.id,
-      operation:emailMode?'user.password.recovery_email':'user.password.temporary_attempt',
-      target_type:'user',target_id:body.user_id,
-      details:{reason:body.reason.trim(),method:emailMode?'recovery_email':'temporary_password'}
-    });
-    if(!audit.ok)return json({error:'تعذر تسجيل عملية التدقيق؛ لم يُنفذ الاسترداد.',code:'AUDIT_FAILED'},502,current.cookies);
-    if(emailMode){
-      const email=identity.data?.user?.email||identity.data?.email;
-      if(!emailValid(email))return json({error:'لا يوجد بريد صالح لهذا الحساب.',code:'TARGET_EMAIL_UNAVAILABLE'},422,current.cookies);
-      const sent=await backend(env,'/auth/v1/recover','POST',{email});
-      if(!sent.ok)return json({error:'تعذر إرسال رمز الاستعادة. تحقق من إعداد البريد أو حاول لاحقًا.',code:'RECOVERY_EMAIL_FAILED'},sent.status===429?429:502,current.cookies);
-      return json({ok:true,message:'تم إرسال طلب الاستعادة إلى البريد المسجل لهذا الحساب.'},200,current.cookies);
-    }
-    const password=temporaryPassword();
-    const app={...(identity.data?.user?.app_metadata||identity.data?.app_metadata||{}),
-      itqan_force_password_change:true,
-      itqan_temp_password_expires_at:new Date(Date.now()+24*60*60*1000).toISOString()};
-    const result=await privileged(env,'/auth/v1/admin/users/'+encodeURIComponent(body.user_id),'PUT',
-      {password,app_metadata:app});
-    if(!result.ok)return json({error:'تعذر تعيين كلمة المرور المؤقتة.',code:'TEMP_PASSWORD_FAILED'},502,current.cookies);
-    return json({ok:true,temporary_password:password,message:'تظهر كلمة المرور المؤقتة مرة واحدة فقط. سلّمها للمستخدم عبر قناة آمنة.'},200,current.cookies);
+    const result=await backend(env,'/functions/v1/itqan-account-recovery','POST',
+      {action:'admin_recover',user_id:body.user_id,reason:body.reason.trim(),
+       mode:body.mode||'temporary'},current.token);
+    if(!result.ok)return json({error:result.status===403?'لا تملك صلاحية إعادة ضبط الدخول.':
+      'تعذر تنفيذ استعادة الحساب. تحقق من إعدادات خدمة المصادقة.',code:result.data?.code||'ADMIN_RECOVERY_FAILED'},
+      [400,401,403,404,422,429].includes(result.status)?result.status:502,current.cookies);
+    return json({ok:true,...result.data},200,current.cookies);
   }
   if (pathname === '/api/login' && request.method === 'POST') {
     const body = await input(request);
