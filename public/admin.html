@@ -20,7 +20,7 @@
   <div class="admin-top-left">
     <span class="admin-role-chip">مدير الموقع</span>
     <span id="top-user-name" class="admin-user-name"></span>
-    <button id="logout" type="button" class="button admin-logout">خروج</button>
+    <a href="/password.html" class="button" title="تغيير كلمة المرور">أمان الحساب</a><button id="logout" type="button" class="button admin-logout">خروج</button>
   </div>
 </header>
 <div class="admin-frame">
@@ -126,5 +126,6 @@
     <div class="dialog-actions"><button type="button" id="cancel-school" class="button">إلغاء</button><button id="save-school" class="primary" type="submit">حفظ المدرسة</button></div>
   </form>
 </dialog>
+<dialog id="password-reset-dialog" class="school-dialog" aria-labelledby="password-reset-heading"><form id="password-reset-form" class="school-form"><div class="dialog-header"><h2 id="password-reset-heading">إعادة ضبط كلمة المرور</h2><button id="password-reset-close" type="button" class="button" aria-label="إغلاق">×</button></div><p id="password-reset-user-name"></p><p class="note">تحقق من هوية صاحب الحساب قبل إنشاء كلمة المرور المؤقتة. سلّمها عبر قناة خاصة وآمنة.</p><label for="password-reset-reason">سبب إعادة الضبط الإداري<input id="password-reset-reason" minlength="10" maxlength="500" autocomplete="off" required placeholder="اذكر سببًا لا يقل عن 10 أحرف"></label><p id="password-reset-error" class="alert error" hidden role="alert"></p><div id="password-reset-output" hidden><label for="password-reset-once">كلمة المرور المؤقتة (تعرض مرة واحدة)<input id="password-reset-once" readonly autocomplete="off" spellcheck="false" dir="ltr"></label><button type="button" class="button" id="password-reset-copy">نسخ كلمة المرور</button><p class="note">سيُطلب من المستخدم إنشاء كلمة مرور جديدة عند تسجيل الدخول التالي.</p></div><div class="dialog-actions"><button type="button" id="password-reset-cancel" class="button">إغلاق</button><button type="submit" id="password-reset-submit" class="primary">إنشاء كلمة مرور مؤقتة</button></div></form></dialog>
 </body>
 </html>
