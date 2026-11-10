@@ -1,0 +1,10 @@
+.access-wrap{display:grid;place-items:center;min-height:calc(100vh - 160px);padding:clamp(22px,6vw,65px) 18px}
+.access-card{background:#fff;width:min(100%,590px);border:1px solid #dce9eb;box-shadow:0 22px 65px #075b6412;border-radius:22px;padding:clamp(22px,5vw,42px);text-align:center}
+.access-symbol{margin:0 auto 14px;display:grid;place-items:center;width:58px;height:58px;border-radius:17px;background:#e8f5f3;color:#075b64;font-size:2rem;font-weight:900}
+.access-card h1{font-size:clamp(1.45rem,4vw,2rem);line-height:1.5;margin:5px 0 12px;color:#173c48}
+.access-description{font-size:1rem;line-height:2;margin:0 0 16px}
+.access-destination{font-size:.9rem;color:#526b75;background:#f5f9fa;border:1px solid #dfeaec;border-radius:12px;padding:10px}
+.access-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:25px 0 10px}
+.access-actions a{min-width:145px}
+.access-help{font-size:.82rem;color:#647b83;margin:18px 0 0}
+@media(max-width:520px){.access-actions{flex-direction:column}.access-actions a{width:100%}}
