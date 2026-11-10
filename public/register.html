@@ -11,8 +11,8 @@
   <main class="container"><div class="auth-wrap panel"><div class="card-heading"><span class="eyebrow">هوية رقمية موثوقة</span><h1>إنشاء حساب</h1><p>تُعتمد عضوية المدرسة لاحقًا من الجهة المخولة.</p></div><div id="message" class="alert" hidden role="alert"></div>
  <form id="account-form"><label for="name">الاسم الكامل<input id="name" name="name" autocomplete="name" minlength="2" maxlength="200" required></label>
  <label for="email">البريد الإلكتروني<input id="email" name="email" type="email" autocomplete="email" required placeholder="name@example.com"></label>
- <label for="password">كلمة المرور<input id="password" name="password" type="password" minlength="4" maxlength="1024" autocomplete="new-password" required></label>
- <p class="note" id="password-hint">الحد المبدئي في إتقان 4 أحرف. قد تتطلب خدمة Supabase Auth كلمة أطول وفق إعداداتها الأمنية.</p><button class="primary" type="submit">إنشاء الحساب</button></form><p class="note">التسجيل لا يمنح صلاحية إدارية أو عضوية مدرسة تلقائيًا.</p></div></main>
+ <label for="password">كلمة المرور<input id="password" name="password" type="password" minlength="6" maxlength="1024" autocomplete="new-password" required></label>
+ <p class="note" id="password-hint">الحد الأدنى لكلمة المرور 6 أحرف، وفق سياسة التسجيل والاستعادة الموحدة.</p><button class="primary" type="submit">إنشاء الحساب</button></form><p class="note">التسجيل لا يمنح صلاحية إدارية أو عضوية مدرسة تلقائيًا.</p></div></main>
   <footer>إتقان سمارت برو — منظومة مدرسية بصلاحيات مستقلة لكل مدرسة</footer>
   <script src="/app.js" defer></script>
 </body></html>
