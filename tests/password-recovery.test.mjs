@@ -33,7 +33,7 @@ function mock({role='member',forced=false,recoveryValid=true,auditOk=true}={}){
       ok({id:OTHER,app_metadata:{provider:'email'}});
     if(path==='/auth/v1/admin/users/'+ID)return method==='PUT'?ok({}):
       ok({id:ID,app_metadata:{itqan_force_password_change:true,provider:'email'}});
-    if(path==='/rest/v1/users')return ok(u.searchParams.has('id')?
+    if(path==='/rest/v1/users')return ok(u.searchParams.get('id')?.endsWith(OTHER)?
       [{id:OTHER,status:'active'}]:[{id:ID,status:'active',full_name:'test'}]);
     if(path==='/rest/v1/user_roles')return ok(role==='site_admin'?[{role_code:'site_admin'}]:[]);
     if(path==='/rest/v1/school_memberships')return ok([]);
