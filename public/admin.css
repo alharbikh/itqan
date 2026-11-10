@@ -305,3 +305,8 @@
  .password-reset-dialog .password-reset-help{padding:10px 12px;font-size:.85rem}
  .password-reset-dialog .dialog-actions{padding:12px 16px}
 }
+
+/* Keep reset actions truly hidden after a successful credential change. */
+.password-reset-dialog #password-reset-submit[hidden],
+.password-reset-dialog #password-reset-output[hidden],
+.password-reset-dialog #password-reset-error[hidden]{display:none!important}
