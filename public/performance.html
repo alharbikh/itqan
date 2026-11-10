@@ -24,7 +24,7 @@
     <button type="submit">إقرار الاطلاع</button></form>
   </section>
   <section class="perf-section">
-   <h2>مكتبة شواهدي الشخصية</h2><p>يمكن حفظ شاهد دون معيار، وربطه لاحقًا بمعيار أو أكثر. هذه مكتبة بيانات وروابط؛ رفع المرفقات الفعلية سيُفعّل بعد إعداد التخزين الآمن.</p>
+   <h2>مكتبة شواهدي الشخصية</h2><p>يمكن حفظ شاهد دون معيار، وربطه لاحقًا بمعيار أو أكثر. يمكن رفع مرفقات خاصة إلى الشاهد دون ربطه بمعيار، ومشاركتها لاحقًا بإذن الموظف.</p>
    <form id="evidence-form" class="perf-grid">
     <label>اسم الشاهد<input id="evidence-title" maxlength="250" required></label>
     <label>رابط إلكتروني اختياري<input id="evidence-url" type="url" placeholder="https://"></label>
@@ -36,6 +36,11 @@
     <div><button id="link-save" type="button">ربط الشاهد بالمعيار</button></div></div>
    <div class="perf-grid perf-slim"><button id="share-evidence" type="button">مشاركة الشاهد المحدد مع المدرسة</button>
     <button id="unshare-evidence" type="button">إلغاء مشاركة الشاهد المحدد</button></div>
+   <form id="attachment-form" class="perf-grid perf-slim">
+     <label>ملف للشاهد المحدد<input id="attachment-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx" required></label>
+     <div><button type="submit">رفع المرفق بأمان (حتى 5 ميجابايت)</button></div>
+   </form>
+   <p class="perf-note">المرفقات خاصة بحسابك افتراضيًا ولا تظهر للمدرسة إلا عند مشاركة الشاهد معها. يمكنك تنزيل الملف أو حذفه لاحقًا.</p>
    <div id="evidence-list" class="perf-list"></div>
   </section>
   <section class="perf-section">
