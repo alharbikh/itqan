@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import worker from '../src/worker.js';
 
@@ -14,7 +15,9 @@ function scope(role='member',options={}){
  const env={
   SUPABASE_URL:'https://itqan-test.supabase.co',SUPABASE_PUBLISHABLE_KEY:'sb_publishable_mock',
   ASSETS:{fetch:async request=>{assets.push(new URL(request.url).pathname);
-   return new Response('<html lang="ar">protected</html>',{status:200,headers:{'content-type':'text/html'}});}
+   return new Response(new URL(request.url).pathname==='/access.html'
+    ?'<html><body data-access-state="default">Access denied</body></html>'
+    :'<html lang="ar">protected</html>',{status:200,headers:{'content-type':'text/html'}});}
   }
  };
  globalThis.fetch=async (url,init={})=>{
@@ -52,10 +55,11 @@ test('short public aliases never expose protected administrator HTML to anonymou
  try{
   for(const path of ['/admin','/admin/','/admin.html','/frameworks','/frameworks/','/frameworks.html']){
    const r=await worker.fetch(req(path),m.env);
-   assert.equal(r.status,302,path);
-   assert.match(r.headers.get('location'),/\/access\.html\?reason=login&section=/);
+   assert.equal(r.status,401,path);
+   assert.equal(r.headers.get('location'),null);
+   assert.match(await r.text(),/data-access-state="login"/);
   }
-  assert.equal(m.assets.length,0);
+  assert.deepEqual(m.assets,Array(6).fill('/access.html'));
  }finally{m.restore();}
 });
 test('non-admin session is blocked from both administrator aliases before asset resolution',async()=>{
@@ -63,10 +67,11 @@ test('non-admin session is blocked from both administrator aliases before asset 
  try{
   for(const path of ['/admin','/admin.html','/frameworks','/frameworks.html']){
    const r=await worker.fetch(req(path,true),m.env);
-   assert.equal(r.status,302);
-   assert.match(r.headers.get('location'),/reason=forbidden/);
+   assert.equal(r.status,403);
+   assert.equal(r.headers.get('location'),null);
+   assert.match(await r.text(),/data-access-state="forbidden"/);
   }
-  assert.equal(m.assets.length,0);
+  assert.deepEqual(m.assets,Array(4).fill('/access.html'));
   const mutation=await worker.fetch(req('/api/admin/schools',true,'POST',schoolPayload),m.env);
   assert.equal(mutation.status,403);
   assert.equal(m.calls.some(c=>c.path==='/rest/v1/schools'),false);
@@ -132,5 +137,39 @@ test('Supabase strong-password restriction gets explicit error without claiming 
   assert.equal(data.code,'AUTH_PASSWORD_POLICY');
   assert.equal(data.field,'password');
   assert.match(data.error,/Supabase Auth/);
+ }finally{m.restore();}
+});
+
+test('static HTML handling is disabled to prevent asset-to-Worker redirect cycles',()=>{
+ const config=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
+ assert.equal(config.assets.html_handling,'none');
+ assert.equal(config.assets.run_worker_first,true);
+});
+test('public paths work without any URL state parameters',async()=>{
+ const m=scope('member');
+ try{
+  for(const path of ['/','/index.html','/login','/login.html','/access','/access.html']){
+   const r=await worker.fetch(req(path),m.env);
+   assert.equal(r.status,200,path);
+   assert.equal(r.headers.get('location'),null);
+  }
+  const legacy=await worker.fetch(req('/access?reason=login&section=admin'),m.env);
+  assert.equal(legacy.status,302);
+  assert.equal(legacy.headers.get('location'),'/access');
+ }finally{m.restore();}
+});
+test('access errors render at requested URL with no query parameters or leaks',async()=>{
+ const m=scope('member');
+ try{
+  const anonymous=await worker.fetch(req('/frameworks'),m.env);
+  assert.equal(anonymous.status,401);
+  assert.match(anonymous.headers.get('content-type'),/^text\/html/);
+  assert.match(await anonymous.text(),/data-access-state="login"/);
+  const forbidden=await worker.fetch(req('/frameworks',true),m.env);
+  assert.equal(forbidden.status,403);
+  const body=await forbidden.text();
+  assert.match(body,/data-access-state="forbidden"/);
+  assert.doesNotMatch(body,/reason=|section=/);
+  assert.equal(forbidden.headers.get('location'),null);
  }finally{m.restore();}
 });
