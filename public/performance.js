@@ -12,6 +12,34 @@ async function api(path,method='GET',body){
 function item(parent,...texts){const e=document.createElement('div');e.className='perf-item';
  for(const t of texts){const d=document.createElement('span');d.textContent=String(t??'—');e.append(d);}
  parent.append(e);return e;}
+async function renderAttachments(evidenceId,container,schoolId=null){
+ const query=new URLSearchParams({evidence_id:evidenceId});
+ if(schoolId)query.set('school_id',schoolId);
+ const response=await api('/api/evidence/attachments?'+query);
+ const attachments=response.attachments||[];
+ if(!attachments.length)return;
+ const area=document.createElement('div');area.className='perf-list';
+ for(const a of attachments){
+  const line=document.createElement('div');line.className='perf-item';
+  const caption=document.createElement('span');
+  caption.textContent=a.original_filename+' — '+(a.byte_size/1024/1024).toFixed(2)+' ميجابايت';
+  const download=document.createElement('a');
+  download.href='/api/evidence/attachments/'+encodeURIComponent(a.id)+'/download'+
+    (schoolId?'?school_id='+encodeURIComponent(schoolId):'');
+  download.textContent='تنزيل المرفق';download.rel='nofollow';
+  line.append(caption,download);
+  if(!schoolId&&a.user_id===state.user?.id){
+   const remove=document.createElement('button');remove.type='button';remove.textContent='حذف المرفق';
+   remove.onclick=async()=>{if(!confirm('سيُحذف الملف نهائيًا ولا يمكن استرجاعه. هل تؤكد؟'))return;
+    try{await api('/api/evidence/attachments/'+encodeURIComponent(a.id),'DELETE');
+       msg('حُذف المرفق بنجاح','success');await refresh();}
+    catch(error){msg(error.message,'error');}};
+   line.append(remove);
+  }
+  area.append(line);
+ }
+ container.append(area);
+}
 function option(select,value,text){const o=document.createElement('option');o.value=value;o.textContent=text;select.add(o);}
 function principal(){return state.user?.schoolMemberships?.some(m=>m.school_id===state.school&&m.access_role==='school_principal');}
 function selectedYear(){return $('year').value;}
@@ -33,6 +61,8 @@ async function refresh(){
  for(const e of state.evidence){
   option(select,e.id,e.title);
   const box=item(listing,e.title,e.description||'شاهد دون وصف');
+  try{await renderAttachments(e.id,box);}
+  catch(error){const note=document.createElement('span');note.textContent='تعذر عرض مرفقات الشاهد';box.append(note);}
   if(e.link_url&&/^https:\/\//.test(e.link_url)){
    const a=document.createElement('a');a.href=e.link_url;a.target='_blank';a.rel='noopener noreferrer';
    a.textContent='فتح الرابط';box.append(a);
@@ -130,6 +160,8 @@ async function refresh(){
   const sharedList=$('shared-evidence-list');sharedList.replaceChildren();
   for(const evidence of shared.evidence||[]){
    const box=item(sharedList,'الموظف: '+evidence.user_id,evidence.title,evidence.description||'بدون وصف');
+   try{await renderAttachments(evidence.id,box,state.school);}
+   catch(error){const note=document.createElement('span');note.textContent='تعذر عرض المرفقات المشاركة';box.append(note);}
    if(evidence.link_url&&/^https:\/\//.test(evidence.link_url)){
     const link=document.createElement('a');link.href=evidence.link_url;link.rel='noopener noreferrer';
     link.target='_blank';link.textContent='فتح الرابط';box.append(link);}
@@ -215,6 +247,17 @@ bindForm('framework-ack',async()=>api('/api/school/framework-ack','POST',
 bindForm('evidence-form',async()=>{await api('/api/evidence/personal','POST',
  {title:$('evidence-title').value,description:$('evidence-description').value,
  link_url:$('evidence-url').value});$('evidence-form').reset();});
+bindForm('attachment-form',async()=>{
+ const evidenceId=$('link-evidence').value;
+ const file=$('attachment-file').files?.[0];
+ if(!evidenceId)throw Error('اختر شاهدًا أولًا');
+ if(!file||file.size===0||file.size>5*1024*1024)throw Error('اختر ملفًا لا يتجاوز 5 ميجابايت');
+ const data=new FormData();data.append('evidence_id',evidenceId);data.append('file',file,file.name);
+ const res=await fetch('/api/evidence/attachments',{method:'POST',credentials:'same-origin',body:data});
+ const response=await res.json().catch(()=>({}));
+ if(!res.ok)throw Error(response.error||'تعذر رفع المرفق');
+ $('attachment-form').reset();
+});
 $('share-evidence').onclick=async()=>{try{
  await api('/api/evidence/share','POST',{evidence_id:$('link-evidence').value,school_id:state.school});
  msg('شاركت الشاهد مع المدرسة الحالية','success');await refresh();}catch(e){msg(e.message,'error');}};
