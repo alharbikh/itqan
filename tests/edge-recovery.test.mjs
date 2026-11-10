@@ -17,6 +17,7 @@ function setup({admin=false,forced=false,invalidToken=false,auditFailure=false,b
     const body=init.body?JSON.parse(init.body):null;
     const event={path,method,body,headers:init.headers};calls.push(event);
     const ok=data=>Response.json(data),error=(status=403)=>Response.json({error:'denied'},{status});
+    if(path==='/auth/v1/verify')return ok({access_token:'recovery-jwt',refresh_token:'recovery-refresh',expires_in:3600});
     if(path==='/auth/v1/user'){
       if(invalidToken)return error(401);
       if(method==='PUT')return ok({id:ID});
@@ -32,7 +33,10 @@ function setup({admin=false,forced=false,invalidToken=false,auditFailure=false,b
       return method==='PUT'?ok({id:OTHER}):
         ok({id:OTHER,email:'target@example.test',app_metadata:{provider:'email'}});
     }
-    if(path==='/auth/v1/admin/users/'+ID)return ok({id:ID});
+    if(path==='/auth/v1/admin/users/'+ID){
+      if(method==='PUT')return ok({id:ID});
+      return ok({id:ID,app_metadata:forced?{provider:'email',itqan_force_password_change:true}:{provider:'email'}});
+    }
     if(path==='/auth/v1/recover')return ok({});
     if(path==='/auth/v1/token')return badCurrent?error(400):ok({access_token:'new-token'});
     throw Error('Unexpected '+path);
@@ -100,4 +104,18 @@ test('Edge removes only its own forced-password metadata after verified change',
   assert.ok(change&&clear);
   assert.equal(clear.body.app_metadata.provider,'email');
   assert.equal(clear.body.app_metadata.itqan_force_password_change,undefined);
+});
+
+test('valid recovery code resets password and removes forced-change flag in one admin update',async()=>{
+  const m=setup({forced:true});
+  const r=await m.handler(new Request('https://itqan-test.supabase.co/functions/v1/itqan-account-recovery',{
+    method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
+      action:'complete_recovery',email:'staff@example.test',code:'123456',password:'a-new-long-secret'})}));
+  assert.equal(r.status,200);
+  const body=await r.json();
+  assert.equal(body.access_token,'recovery-jwt');
+  const update=m.calls.find(c=>c.path==='/auth/v1/admin/users/'+ID&&c.method==='PUT');
+  assert.ok(update);assert.equal(update.body.password,'a-new-long-secret');
+  assert.equal(update.body.app_metadata.itqan_force_password_change,undefined);
+  assert.equal(update.body.app_metadata.provider,'email');
 });
