@@ -49,9 +49,10 @@ async function init() {
     try{
       const result=await call('/api/session');mustChange=result.user.mustChangePassword===true;role=result.user.role;
       if(mustChange){
-        $('current-password-label').hidden=true;
-        $('password-guidance').textContent='أنت تستخدم كلمة مرور مؤقتة. يجب إنشاء كلمة مرور جديدة قبل متابعة استخدام المنصة.';
-      }else{$('current-password').required=true;}
+        $('current-password-label').firstChild.textContent='كلمة المرور المؤقتة';
+        $('password-guidance').textContent='أدخل كلمة المرور المؤقتة التي تسلمتها، ثم أنشئ كلمة مرور جديدة قبل استخدام المنصة.';
+      }
+      $('current-password').required=true;
     }catch{show('يلزم تسجيل الدخول أولًا لتغيير كلمة المرور.','error');
       $('password-change-form').hidden=true;return}
     $('password-change-form').addEventListener('submit',async e=>{
@@ -60,7 +61,7 @@ async function init() {
       const button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;
       try{
         await call('/api/password/change','POST',{password:$('password').value,
-          ...(mustChange?{}:{current_password:$('current-password').value})});
+          current_password:$('current-password').value});
         show('تم تغيير كلمة المرور بنجاح.','success');
         $('password-change-form').reset();
         if(mustChange)location.assign(role==='site_admin'?'/admin.html':'/link.html');
