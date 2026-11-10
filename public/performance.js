@@ -53,6 +53,8 @@ async function refresh(){
  state.school=currentSchool();
  const year=selectedYear();
  for(const p of document.querySelectorAll('.principal-panel'))p.hidden=!principal();
+ $('share-evidence').disabled=!state.school;
+ $('unshare-evidence').disabled=!state.school;
  $('role').textContent=principal()?'مدير المدرسة':'موظف';
  const evidence=await api('/api/evidence/personal');
  state.evidence=Array.isArray(evidence.evidence)?evidence.evidence:[];
@@ -221,7 +223,7 @@ async function init(){
   state.schools=schools.schools||[];
   const sch=$('school');sch.replaceChildren();
   for(const school of state.schools)option(sch,school.id,school.name);
-  if(!state.schools.length){msg('لا توجد عضوية نشطة. افتح صفحة طلب الربط.','info');return;}
+  if(!state.schools.length){msg('لا توجد عضوية مدرسية نشطة. مكتبة شواهدك الشخصية ومرفقاتها ما زالت متاحة.','info');await refresh();return;}
   state.school=state.schools[0].id;
   const years=$('year');years.replaceChildren();option(years,'','اختر العام الدراسي');
   for(const y of state.years)option(years,y.id,y.label);
