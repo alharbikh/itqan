@@ -11,3 +11,19 @@
 #school-sidebar .principal-only[hidden]{display:none!important}
 @media(max-width:760px){.school-context{padding:12px 14px;gap:9px}.school-context select{width:100%;flex:1;min-width:0}.school-service-grid{grid-template-columns:1fr}}
 @media print{.school-context,.admin-sidebar,.nav-toggle{display:none!important}}
+
+/* Personnel manager: accessible, desktop-first tabs with responsive wrapping. */
+.personnel-tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border,#d8e4e5)}
+.personnel-tabs .is-active{background:#075b64;color:#fff;border-color:#075b64}
+.personnel-list{display:grid;gap:.75rem}
+.personnel-request,.personnel-approval-form{border:1px solid #d8e4e5;border-radius:12px;padding:1rem;background:var(--card-bg,#fff);display:grid;gap:.6rem}
+.personnel-request-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+.personnel-request p{margin:0;overflow-wrap:anywhere}
+.personnel-status{background:#eff6f6;color:#075b64;border-radius:8px;padding:.3rem .65rem;font-size:.85rem}
+.personnel-actions{display:flex;flex-wrap:wrap;gap:.4rem}
+.personnel-approval-form{margin:1rem 0;grid-template-columns:repeat(auto-fit,minmax(175px,1fr))}
+.personnel-approval-form h3{grid-column:1/-1;margin:0}
+.personnel-approval-form label{display:grid;gap:.35rem;font-weight:600}
+.personnel-approval-form :is(input,select){max-width:100%;width:100%;box-sizing:border-box}
+.personnel-sensitive{padding:.7rem;border:1px solid #d4aa5b;border-radius:8px;background:#fff9ec;direction:rtl}
+@media(max-width:700px){.personnel-approval-form{grid-template-columns:1fr}.personnel-tabs{flex-direction:column}}
