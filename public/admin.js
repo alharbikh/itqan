@@ -145,9 +145,41 @@ function populateUsers() {
     const toggle=document.createElement('button');toggle.type='button';toggle.className='button';
     toggle.textContent=user.status==='active'?'إيقاف':'تفعيل';
     toggle.addEventListener('click',()=>changeUserStatus(user));
-    actions.append(toggle);tr.append(actions);
+    actions.append(toggle);
+    const reset=document.createElement('button');reset.type='button';reset.className='button';reset.textContent='إعادة ضبط الدخول';
+    reset.addEventListener('click',()=>openPasswordReset(user));actions.append(reset);tr.append(actions);
     tbody.append(tr);
   }
+}
+let passwordResetUser=null;
+function closePasswordReset(){
+  $('password-reset-dialog').close();$('password-reset-form').reset();
+  $('password-reset-once').value='';$('password-reset-output').hidden=true;
+  $('password-reset-error').hidden=true;passwordResetUser=null;
+}
+function openPasswordReset(user){
+  passwordResetUser=user;
+  $('password-reset-form').reset();$('password-reset-error').hidden=true;
+  $('password-reset-output').hidden=true;$('password-reset-once').value='';
+  $('password-reset-submit').hidden=false;
+  $('password-reset-user-name').textContent='الحساب: '+(user.full_name||user.id);
+  $('password-reset-dialog').showModal();$('password-reset-reason').focus();
+}
+async function submitPasswordReset(e){
+  e.preventDefault();
+  if(!passwordResetUser)return;
+  const button=$('password-reset-submit');button.disabled=true;
+  $('password-reset-error').hidden=true;
+  try{
+    const result=await api('/api/admin/users/password','POST',{
+      user_id:passwordResetUser.id,reason:$('password-reset-reason').value.trim()});
+    $('password-reset-once').value=result.temporary_password;
+    $('password-reset-output').hidden=false;button.hidden=true;
+    await loadAudit();
+  }catch(error){
+    $('password-reset-error').textContent=error.message||'تعذر إعادة الضبط.';
+    $('password-reset-error').hidden=false;
+  }finally{button.disabled=false;}
 }
 function populateOverview() {
   $('stat-schools').textContent=state.schools.length;
@@ -295,7 +327,8 @@ async function loadAudit(){
     if(!state.audit.length){emptyRow(tbody,4,'لا توجد عمليات مسجلة بعد.');return;}
     const labels={'school.create':'إنشاء مدرسة','school.update':'تعديل مدرسة','school.delete':'حذف مدرسة','school.status':'تعديل حالة مدرسة',
       'membership.upsert':'تحديث عضوية','user.status':'تعديل حالة حساب',
-      'user.role.grant':'منح مدير الموقع','user.role.revoke':'سحب مدير الموقع'};
+      'user.role.grant':'منح مدير الموقع','user.role.revoke':'سحب مدير الموقع',
+      'user.password.temporary':'إنشاء كلمة مرور مؤقتة'};
     for(const item of state.audit){
       const tr=document.createElement('tr');
       const actor=state.users.find(x=>x.id===item.actor_user_id);
@@ -413,6 +446,17 @@ async function start() {
   $('membership-form').addEventListener('submit',saveMembership);
   $('site-role-form').addEventListener('submit',saveSiteRole);
   $('refresh-audit').addEventListener('click',loadAudit);
+  $('password-reset-form').addEventListener('submit',submitPasswordReset);
+  $('password-reset-close').addEventListener('click',closePasswordReset);
+  $('password-reset-cancel').addEventListener('click',closePasswordReset);
+  $('password-reset-dialog').addEventListener('close',()=>{
+    $('password-reset-once').value='';$('password-reset-output').hidden=true;passwordResetUser=null;
+  });
+  $('password-reset-copy').addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText($('password-reset-once').value);
+      notice('تم النسخ. شارك كلمة المرور عبر قناة آمنة فقط.','success');
+    }catch{$('password-reset-once').select();notice('حدد كلمة المرور وانسخها يدويًا.','info');}
+  });
   $('membership-role').addEventListener('change',()=>{
     if($('membership-role').value==='school_principal')$('membership-job').value='principal';
   });
