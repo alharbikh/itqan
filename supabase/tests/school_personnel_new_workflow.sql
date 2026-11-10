@@ -24,8 +24,12 @@ declare v_request uuid; v_profile uuid; v_transfer uuid; v_target uuid; v_json j
  v_principal_b uuid:='73333333-3333-4333-8333-333333333333';
 begin
  perform set_config('request.jwt.claim.sub',v_owner::text,true);
- v_json:=to_jsonb((select array_agg(id) from public.school_personnel_profiles));
- if v_json is not null then raise exception 'Authenticated role can directly read private profiles'; end if;
+ begin
+  perform 1 from public.school_personnel_profiles;
+ exception when insufficient_privilege then v_denied:=true;
+ end;
+ if not v_denied then raise exception 'Private profiles directly readable'; end if;
+ v_denied:=false;
  v_request:=public.itqan_personnel_submit_request(v_source_school,'Approved Employee','1234567890',null,'Education');
  if v_request is null then raise exception 'Request missing';end if;
  perform set_config('request.jwt.claim.sub',v_principal_a::text,true);
@@ -52,13 +56,18 @@ begin
  v_json:=public.itqan_personnel_my_profiles();
  if jsonb_array_length(v_json)<>1 or v_json->0->>'employee_number'<>'A-001' then
    raise exception 'Owner cannot view own profile';end if;
- -- Only one active school membership may exist.
+ -- A second school may receive a request, but may not approve a simultaneous active membership.
+ v_denied:=false;
+ v_request:=public.itqan_personnel_submit_request(v_target_school,'Approved Employee','1234567890',null,null);
+ perform set_config('request.jwt.claim.sub',v_principal_b::text,true);
+ perform public.itqan_school_personnel_decide(v_request,'start',null,null,null,null);
  begin
-   insert into public.school_memberships(school_id,user_id,access_role,job_role,status)
-   values(v_target_school,v_owner,'employee','staff','active');
+  perform public.itqan_school_personnel_decide(v_request,'approve','B-100',
+   '76666666-6666-4666-8666-666666666666',null,null);
  exception when unique_violation then v_denied:=true;
  end;
  if not v_denied then raise exception 'A second active membership was allowed';end if;
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
  perform public.itqan_school_unlink(v_source_school,v_owner,'Leaving old school');
  perform set_config('request.jwt.claim.sub',v_principal_b::text,true);
  v_transfer:=public.itqan_profile_operation_start(v_profile,v_target_school,'transfer','B-100',
