@@ -64,6 +64,19 @@
           <h2>الملفات الوظيفية المعتمدة</h2>
           <p>الرقم الوظيفي خاص بهذه المدرسة. لا يُنشأ ملف معتمد إلا بعد التحقق وموافقة المدير.</p>
           <div class="table-scroll"><table class="admin-table"><thead><tr><th>اسم الموظف</th><th>رقم الموظف</th><th>الحالة</th><th>التخصص</th></tr></thead><tbody id="personnel-profiles-body"></tbody></table></div>
+          <details class="personnel-transfer-block">
+            <summary><strong>إضافة ملف وظيفي معتمد بواسطة مدير المدرسة</strong></summary>
+            <p>إضافة الملف لا تنشئ عضوية حساب؛ يتطلب ربط الحساب طلبًا مستقلًا وموافقة مدير المدرسة بعد التحقق من الهوية.</p>
+            <form id="personnel-direct-form" class="personnel-approval-form">
+              <label>الاسم الرباعي <input id="personnel-direct-name" minlength="2" maxlength="200" required></label>
+              <label>رقم الهوية أو الإقامة <input id="personnel-direct-national" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required></label>
+              <label>رقم الموظف في هذه المدرسة <input id="personnel-direct-number" maxlength="80" required></label>
+              <label>العام الدراسي <select id="personnel-direct-year" required></select></label>
+              <label>المسمى الوظيفي <select id="personnel-direct-job"></select></label>
+              <label>التخصص (اختياري) <input id="personnel-direct-specialization" maxlength="120"></label>
+              <div><button type="submit" class="button">اعتماد وإنشاء الملف</button></div>
+            </form>
+          </details>
           <div class="personnel-transfer-block">
             <h3>نقل أو نسخ ملف من مدرسة أخرى</h3>
             <p>تبدأ المدرسة المستقبلة الطلب. تحصل على معرف الملف المصدر من صاحبه، ثم تُستكمل موافقة صاحب الملف والمدرسة المصدر قبل التنفيذ.</p>
