@@ -79,7 +79,7 @@ async function handler(req) {
       return json({error:'Temporary password expired',code:'TEMP_PASSWORD_EXPIRED'},403);
     if(!emailValid(auth.data.email))return json({error:'Email unavailable'},422);
     const verified=await call('/auth/v1/token?grant_type=password','POST',
-      {email:auth.data.email,password:body.current_password},PUBLIC_KEY,PUBLIC_KEY);
+      {email:auth.data.email,password:body.current_password},PUBLIC_KEY,null);
     if(!verified.ok)return json({error:'Invalid current password'},403);
     const changed=await call('/auth/v1/user','PUT',{password:body.password},PUBLIC_KEY,token);
     if(!changed.ok)return json({error:'Password rejected'},422);
@@ -113,7 +113,7 @@ async function handler(req) {
   });
   if(!audit.ok)return json({error:'Audit unavailable; no recovery performed'},502);
   if(body.mode==='email'){
-    const sent=await call('/auth/v1/recover','POST',{email:account.email},PUBLIC_KEY,PUBLIC_KEY);
+    const sent=await call('/auth/v1/recover','POST',{email:account.email},PUBLIC_KEY,null);
     if(!sent.ok)return json({error:'Recovery email unavailable'},sent.status===429?429:502);
     return json({ok:true,message:'تم طلب إرسال رمز الاستعادة إلى البريد المسجل.'});
   }
