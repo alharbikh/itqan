@@ -5,7 +5,7 @@
 <meta name="theme-color" content="#075b64"><meta name="robots" content="noindex,nofollow">
 <title>مساحة المدرسة | إتقان سمارت برو</title>
 <link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/admin.css"><link rel="stylesheet" href="/school.css">
-<script src="/school.js" defer></script>
+<script src="/school.js" defer></script><script src="/personnel-admin.js" defer></script>
 </head>
 <body data-view="school" class="admin-app nav-expanded">
 <header class="admin-topbar">
@@ -23,7 +23,7 @@
     <nav class="admin-menu" aria-label="أقسام المدرسة">
       <button type="button" class="admin-menu-item is-active" aria-current="page" data-section="overview" title="لوحة المدرسة"><span class="menu-icon" aria-hidden="true">▦</span><span class="menu-label">لوحة المدرسة</span></button>
       <button type="button" class="admin-menu-item" data-section="membership" title="مدارسي وصلاحياتي"><span class="menu-icon" aria-hidden="true">⌂</span><span class="menu-label">مدارسي وصلاحياتي</span></button>
-      <button type="button" class="admin-menu-item principal-only" data-section="members" title="منسوبو المدرسة" hidden><span class="menu-icon" aria-hidden="true">♙</span><span class="menu-label">منسوبو المدرسة</span></button>
+      <button type="button" class="admin-menu-item principal-only" data-section="members" title="إدارة منسوبي المدرسة" hidden><span class="menu-icon" aria-hidden="true">♙</span><span class="menu-label">منسوبو المدرسة</span></button>
       <button type="button" class="admin-menu-item" data-section="services" title="خدمات المدرسة"><span class="menu-icon" aria-hidden="true">◇</span><span class="menu-label">خدمات المدرسة</span></button>
       <a class="admin-menu-item" href="/performance.html" title="الأداء والشواهد"><span class="menu-icon" aria-hidden="true">▤</span><span class="menu-label">الأداء والشواهد</span></a>
       <a class="admin-menu-item" href="/link.html" title="الارتباط الوظيفي"><span class="menu-icon" aria-hidden="true">⇄</span><span class="menu-label">الارتباط الوظيفي</span></a>
@@ -52,8 +52,32 @@
       <div class="admin-card"><div id="membership-list" class="admin-mini-list"></div></div>
     </section>
     <section id="section-members" class="admin-section" hidden aria-labelledby="members-heading">
-      <div class="section-heading"><div><span class="eyebrow">مدير المدرسة</span><h1 id="members-heading">منسوبو المدرسة</h1><p>عرض عضويات المدرسة المختارة وفق صلاحية مدير المدرسة وقواعد RLS.</p></div><button id="refresh-members" type="button" class="button">تحديث</button></div>
-      <div class="admin-card"><div class="table-scroll"><table class="admin-table"><thead><tr><th>المستخدم</th><th>الصلاحية</th><th>العمل الحالي</th><th>حالة العضوية</th></tr></thead><tbody id="members-body"></tbody></table></div></div>
+      <div class="section-heading"><div><span class="eyebrow">مدير المدرسة</span><h1 id="members-heading">إدارة منسوبي المدرسة</h1><p>الملفات الوظيفية وطلبات الارتباط والسجل التاريخي، بحسب صلاحيات المدرسة.</p></div><button id="refresh-members" type="button" class="button">تحديث</button></div>
+      <div class="admin-card" id="personnel-admin" dir="rtl">
+        <div class="personnel-tabs" role="tablist" aria-label="إدارة الملفات الوظيفية">
+          <button class="button" type="button" data-personnel-tab="profiles" aria-selected="true">الملفات الوظيفية</button>
+          <button class="button" type="button" data-personnel-tab="requests" aria-selected="false">طلبات الارتباط</button>
+          <button class="button" type="button" data-personnel-tab="history" aria-selected="false">سجل الارتباطات</button>
+        </div>
+        <div id="personnel-message" class="alert" role="status" aria-live="polite" hidden></div>
+        <div data-personnel-panel="profiles">
+          <h2>الملفات الوظيفية المعتمدة</h2>
+          <p>الرقم الوظيفي خاص بهذه المدرسة. لا يُنشأ ملف معتمد إلا بعد التحقق وموافقة المدير.</p>
+          <div class="table-scroll"><table class="admin-table"><thead><tr><th>اسم الموظف</th><th>رقم الموظف</th><th>الحالة</th><th>التخصص</th></tr></thead><tbody id="personnel-profiles-body"></tbody></table></div>
+          <h3>العضويات المدرسية الحالية</h3>
+          <div class="table-scroll"><table class="admin-table"><thead><tr><th>المستخدم</th><th>الصلاحية</th><th>العمل الحالي</th><th>حالة العضوية</th></tr></thead><tbody id="members-body"></tbody></table></div>
+        </div>
+        <div data-personnel-panel="requests" hidden>
+          <h2>طلبات الموظفين</h2>
+          <p>ابدأ مراجعة الطلب أولًا، ثم تحقق من الهوية قبل اعتماد الملف وربط الحساب.</p>
+          <div id="personnel-requests-list" class="personnel-list"></div>
+        </div>
+        <div data-personnel-panel="history" hidden>
+          <h2>سجل الإجراءات</h2>
+          <p>يعرض هذا القسم حالات الطلبات والقرارات؛ ولا يتيح الاطلاع على ملفات المدارس الأخرى.</p>
+          <div id="personnel-history-list" class="personnel-list"></div>
+        </div>
+      </div>
     </section>
     <section id="section-services" class="admin-section" hidden aria-labelledby="services-heading">
       <div class="section-heading"><div><span class="eyebrow">الخدمات التعليمية</span><h1 id="services-heading">خدمات المدرسة</h1></div></div>
