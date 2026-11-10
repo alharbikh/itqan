@@ -114,7 +114,9 @@ test('valid recovery code resets password and removes forced-change flag in one 
       action:'complete_recovery',email:'staff@example.test',code:'123456',password:'a-new-long-secret'})}));
   assert.equal(r.status,200);
   const body=await r.json();
-  assert.equal(body.access_token,'recovery-jwt');
+  assert.equal(body.ok,true);
+  assert.equal(body.access_token,undefined);
+  assert.equal(body.refresh_token,undefined);
   const update=m.calls.find(c=>c.path==='/auth/v1/admin/users/'+ID&&c.method==='PUT');
   assert.ok(update);assert.equal(update.body.password,'a-new-long-secret');
   assert.equal(update.body.app_metadata.itqan_force_password_change,undefined);
