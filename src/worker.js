@@ -9,13 +9,13 @@ function protectedRoute(path) {
   return match?{section:match[1],asset:'/'+match[1]+'.html'}:null;
 }
 const SESSION_MAX_AGE = 60 * 60;
-const DEFAULT_PASSWORD_MIN_LENGTH = 4; // App-level preference; Supabase Auth may enforce a higher minimum.
+const DEFAULT_PASSWORD_MIN_LENGTH = 6; // Match the minimum accepted by Supabase Auth.
 function passwordMinLength(env) {
   const chosen=Number(env.PASSWORD_MIN_LENGTH ?? DEFAULT_PASSWORD_MIN_LENGTH);
-  return Number.isInteger(chosen)&&chosen>=4&&chosen<=32?chosen:DEFAULT_PASSWORD_MIN_LENGTH;
+  return Number.isInteger(chosen)&&chosen>=6&&chosen<=32?chosen:DEFAULT_PASSWORD_MIN_LENGTH;
 }
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 14;
-const RESET_MIN_LENGTH = 8;
+const RESET_MIN_LENGTH = 6;
 const emailValid = value => typeof value==='string' && value.length<=254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
 const validPassword = value => typeof value==='string' && value.length>=RESET_MIN_LENGTH && value.length<=1024;
 const uuidValid = value => typeof value==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -198,7 +198,7 @@ async function api(request, env, pathname) {
     const body=await input(request);
     if(!body||!emailValid(body.email)||typeof body.code!=='string'||!/^[0-9]{6,8}$/.test(body.code)||
        !validPassword(body.password)||Object.keys(body).some(k=>!['email','code','password'].includes(k)))
-      return json({error:'تحقق من البريد والرمز، واستخدم كلمة مرور من 8 أحرف على الأقل.',code:'INVALID_RESET'},400);
+      return json({error:'تحقق من البريد والرمز، واستخدم كلمة مرور من 6 أحرف على الأقل.',code:'INVALID_RESET'},400);
     const completed=await backend(env,'/functions/v1/itqan-account-recovery','POST',
       {action:'complete_recovery',email:body.email.trim(),code:body.code,password:body.password});
     if(!completed.ok||completed.data?.ok!==true)
@@ -214,7 +214,7 @@ async function api(request, env, pathname) {
     if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
     const body=await input(request);
     if(!body||!validPassword(body.password)||Object.keys(body).some(k=>!['password','current_password'].includes(k)))
-      return json({error:'استخدم كلمة مرور جديدة لا تقل عن 8 أحرف.',code:'INVALID_PASSWORD'},400,current.cookies);
+      return json({error:'استخدم كلمة مرور جديدة لا تقل عن 6 أحرف.',code:'INVALID_PASSWORD'},400,current.cookies);
     if(typeof body.current_password!=='string'||!body.current_password)
       return json({error:'أدخل كلمة المرور الحالية أو المؤقتة.',code:'CURRENT_PASSWORD_REQUIRED'},400,current.cookies);
     if(body.password===body.current_password)
@@ -294,7 +294,7 @@ async function api(request, env, pathname) {
       const weak=response.data?.error_code==='weak_password'||/password.*(least|length|short|weak)/.test(text);
       const duplicate=/already registered|already exists|user already/.test(text);
       return json({error:weak
-        ?'لم تقبل خدمة Supabase Auth طول كلمة المرور. إعداداتها الحالية قد تتطلب 6 أحرف أو أكثر، حتى لو كان الحد في إتقان 4 أحرف. استخدم كلمة أطول لحين مواءمة إعدادات المصادقة.'
+        ?'لم تقبل خدمة Supabase Auth كلمة المرور. استخدم 6 أحرف على الأقل، أو تحقق من سياسة الأمان في إعدادات Supabase.'
         :duplicate?'هذا البريد مسجل مسبقًا. استخدم صفحة تسجيل الدخول.'
         :'تعذر إنشاء الحساب. تحقق من البريد الإلكتروني أو حاول مرة أخرى.',
         code:weak?'AUTH_PASSWORD_POLICY':duplicate?'EMAIL_ALREADY_REGISTERED':'REGISTRATION_FAILED',
