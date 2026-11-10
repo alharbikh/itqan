@@ -206,14 +206,13 @@ async function api(request, env, pathname) {
       return json({error:'تحقق من البريد والرمز، واستخدم كلمة مرور من 8 أحرف على الأقل.',code:'INVALID_RESET'},400);
     const completed=await backend(env,'/functions/v1/itqan-account-recovery','POST',
       {action:'complete_recovery',email:body.email.trim(),code:body.code,password:body.password});
-    if(!completed.ok||!completed.data?.access_token||!completed.data?.refresh_token)
+    if(!completed.ok||completed.data?.ok!==true)
       return json({error:completed.status===400?'رمز الاستعادة غير صحيح أو انتهت صلاحيته.':
-        'تعذر استكمال الاستعادة. تحقق من كلمة المرور أو حاول لاحقًا.',
+        completed.status===422?'كلمة المرور الجديدة لا تحقق سياسة الأمان.':
+        'تعذر استكمال الاستعادة. حاول لاحقًا.',
         code:completed.status===400?'INVALID_RECOVERY_CODE':'RECOVERY_FAILED'},
-        completed.status===400?400:502);
-    const user=await verifiedUser(env,completed.data.access_token);
-    if(!user)return json({error:'تعذر تفعيل جلسة الحساب.',code:'ACCOUNT_INACTIVE'},403);
-    return json({ok:true,user},200,tokensCookies(completed.data));
+        [400,422].includes(completed.status)?completed.status:502);
+    return json({ok:true,message:'تم تغيير كلمة المرور. سجّل الدخول بالكلمة الجديدة.'},200,clearedCookies());
   }
   if(pathname==='/api/password/change' && request.method==='POST'){
     const current=await session(request,env,true);
@@ -234,7 +233,7 @@ async function api(request, env, pathname) {
           :result.status===403?'كلمة المرور المؤقتة غير صحيحة أو الحساب غير مؤهل.'
           :'تعذر إكمال تغيير كلمة المرور المؤقتة.',code:result.data?.code||'FORCED_PASSWORD_CHANGE_FAILED'},
           [400,401,403,422].includes(result.status)?result.status:502,current.cookies);
-      return json({ok:true},200,current.cookies);
+      return json({ok:true},200,clearedCookies());
     }
     const identity=await backend(env,'/auth/v1/user','GET',undefined,current.token);
     if(!identity.ok||!emailValid(identity.data?.email))
@@ -243,7 +242,7 @@ async function api(request, env, pathname) {
       {email:identity.data.email,password:body.current_password});
     if(!checked.ok)return json({error:'كلمة المرور الحالية غير صحيحة.',code:'CURRENT_PASSWORD_INVALID'},403,current.cookies);
     const result=await backend(env,'/auth/v1/user','PUT',{password:body.password},current.token);
-    return result.ok?json({ok:true},200,current.cookies):
+    return result.ok?json({ok:true},200,clearedCookies()):
       json({error:'لم تقبل خدمة المصادقة كلمة المرور الجديدة.',code:'PASSWORD_REJECTED'},422,current.cookies);
   }
   if(pathname==='/api/admin/users/password' && request.method==='POST'){
