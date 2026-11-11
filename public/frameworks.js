@@ -1,5 +1,43 @@
 (()=>{'use strict';const $=id=>document.getElementById(id);
 let catalog={years:[],stages:[]};
+
+const compact=matchMedia('(max-width:760px)');
+let navMode='expanded';
+function updateNav(){
+ for(const mode of ['expanded','icons','hidden'])document.body.classList.toggle('nav-'+mode,navMode===mode);
+ const open=document.body.classList.contains('nav-mobile-open');
+ $('admin-scrim').hidden=!open;
+ $('nav-toggle').setAttribute('aria-expanded',String(compact.matches?open:navMode!=='hidden'));
+}
+function toggleNav(){
+ if(compact.matches)document.body.classList.toggle('nav-mobile-open');
+ else navMode={expanded:'icons',icons:'hidden',hidden:'expanded'}[navMode];
+ updateNav();
+}
+function confirmFrameworkAction(question){
+ return new Promise(resolve=>{
+  const dialog=document.createElement('dialog');
+  dialog.className='itqan-confirm-dialog';
+  dialog.setAttribute('dir','rtl');dialog.setAttribute('aria-label','تأكيد إجراء إداري');
+  const message=document.createElement('p');message.className='itqan-confirm-message';message.textContent=question;
+  const actions=document.createElement('div');actions.className='itqan-confirm-actions';
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='itqan-confirm-button';cancel.textContent='إلغاء';
+  const accept=document.createElement('button');accept.type='button';accept.className='itqan-confirm-button itqan-confirm-accept';accept.textContent='تأكيد';
+  actions.append(cancel,accept);dialog.append(message,actions);document.body.append(dialog);
+  let settled=false;
+  const finish=value=>{if(settled)return;settled=true;dialog.close();dialog.remove();resolve(value);};
+  cancel.addEventListener('click',()=>finish(false));
+  accept.addEventListener('click',()=>finish(true));
+  dialog.addEventListener('cancel',event=>{event.preventDefault();finish(false);});
+  dialog.addEventListener('close',()=>finish(false));
+  try{dialog.showModal();cancel.focus();}catch{finish(false);}
+ });
+}
+$('nav-toggle').addEventListener('click',toggleNav);
+$('admin-scrim').addEventListener('click',()=>{document.body.classList.remove('nav-mobile-open');updateNav();});
+compact.addEventListener('change',()=>{document.body.classList.remove('nav-mobile-open');updateNav();});
+updateNav();
+
 function notice(x,type='info'){$('message').textContent=x;$('message').className='alert '+type;$('message').hidden=false;}
 async function api(path,method='GET',body){const res=await fetch(path,{method,credentials:'same-origin',
  ...(body===undefined?{}:{headers:{'content-type':'application/json'},body:JSON.stringify(body)})});
@@ -45,14 +83,14 @@ async function refresh(){
   buttons.append(edit);
   if(x.status==='draft'){
    const approve=document.createElement('button');approve.type='button';approve.textContent='اعتماد بعد المراجعة';
-   approve.onclick=async()=>{if(!confirm('هل راجعت جميع المعايير والتفسيرات والأوزان من المصدر الرسمي؟'))return;
+   approve.onclick=async()=>{if(!await confirmFrameworkAction('هل راجعت جميع المعايير والتفسيرات والأوزان من المصدر الرسمي؟'))return;
     try{await api('/api/admin/framework-actions','POST',{batch_id:x.id,action:'approve',
      note:'مراجعة واعتماد مدير الموقع'});notice('أُنجز الاعتماد دون نشر','success');await refresh();}
     catch(err){notice(err.message,'error');}};
    buttons.append(approve);
   }else if(x.status==='approved'){
    const publish=document.createElement('button');publish.type='button';publish.textContent='نشر الإطار للمدارس';
-   publish.onclick=async()=>{if(!confirm('سيصبح الإطار المعتمد متاحًا للمدارس. هل تعتمد النشر؟'))return;
+   publish.onclick=async()=>{if(!await confirmFrameworkAction('سيصبح الإطار المعتمد متاحًا للمدارس. هل تعتمد النشر؟'))return;
     try{await api('/api/admin/framework-actions','POST',{batch_id:x.id,action:'publish'});
      notice('نُشر الإطار','success');await refresh();}catch(err){notice(err.message,'error');}};
    buttons.append(publish);
