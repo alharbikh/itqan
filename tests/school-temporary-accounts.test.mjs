@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 
 const edge=readFileSync(new URL('../supabase/functions/itqan-account-recovery/index.ts',import.meta.url),'utf8');
 const worker=readFileSync(new URL('../src/worker.js',import.meta.url),'utf8');
-const sql=readFileSync(new URL('../supabase/migrations/20261111180000_school_temporary_accounts.sql',import.meta.url),'utf8');
+const sql=readFileSync(new URL('../supabase/migrations/20261111172306_school_temporary_accounts.sql',import.meta.url),'utf8');
 const html=readFileSync(new URL('../public/school.html',import.meta.url),'utf8');
 const ui=readFileSync(new URL('../public/school-invitations.js',import.meta.url),'utf8');
 
