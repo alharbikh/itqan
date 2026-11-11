@@ -5,6 +5,32 @@ const $ = id => document.getElementById(id);
 const state = { mode: 'expanded', section: 'overview', schools: [], users: [], memberships: [], permissions: [], siteAdmins: [], audit: [], editing: null };
 const names = {overview:'لوحة المعلومات',schools:'المدارس',users:'المستخدمون',memberships:'عضويات المدارس',permissions:'الأدوار والصلاحيات',audit:'سجل العمليات',resources:'أدوات مدير الموقع',settings:'إعدادات المنصة'};
 const mobile = matchMedia('(max-width:760px)');
+
+function adminDialog(question, typedConfirmation=false){
+ return new Promise(resolve=>{
+  const dialog=document.createElement('dialog');
+  dialog.setAttribute('dir','rtl');dialog.setAttribute('aria-label','تأكيد إجراء إداري');
+  dialog.style.cssText='max-width:min(92vw,440px);width:100%;border:1px solid #cbd5e1;border-radius:14px;padding:24px;background:#fff;color:#172033;box-shadow:0 16px 48px #0003;font-family:Cairo,sans-serif';
+  const message=document.createElement('p');message.textContent=question;
+  message.style.cssText='margin:0 0 16px;line-height:1.9';
+  const input=typedConfirmation?document.createElement('input'):null;
+  if(input){input.type='text';input.autocomplete='off';input.setAttribute('aria-label','عبارة التأكيد');
+   input.style.cssText='width:100%;box-sizing:border-box;margin-bottom:16px;border:1px solid #94a3b8;border-radius:8px;padding:10px;font:inherit';}
+  const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap';
+  const cancel=document.createElement('button');cancel.type='button';cancel.textContent='إلغاء';
+  const accept=document.createElement('button');accept.type='button';accept.textContent='تأكيد';
+  for(const button of [cancel,accept])button.style.cssText='padding:8px 18px;border-radius:8px;border:1px solid #94a3b8;cursor:pointer;font:inherit';
+  accept.style.background='#176653';accept.style.color='#fff';actions.append(cancel,accept);
+  dialog.append(message);if(input)dialog.append(input);dialog.append(actions);document.body.append(dialog);
+  let settled=false;
+  const finish=value=>{if(settled)return;settled=true;dialog.close();dialog.remove();resolve(value);};
+  cancel.addEventListener('click',()=>finish(typedConfirmation?null:false));
+  accept.addEventListener('click',()=>finish(typedConfirmation?input.value:true));
+  dialog.addEventListener('cancel',event=>{event.preventDefault();finish(typedConfirmation?null:false);});
+  dialog.addEventListener('close',()=>finish(typedConfirmation?null:false));
+  try{dialog.showModal();(input||cancel).focus();}catch{finish(typedConfirmation?null:false);}
+ });
+}
 function notice(message, type='info') {
   const box = $('message');
   box.textContent = message;
@@ -211,7 +237,7 @@ function displayTime(value){
   catch{return '—';}
 }
 async function adminAction(action, values, question){
-  if(!window.confirm(question))return false;
+  if(!await adminDialog(question))return false;
   try{
     await api('/api/admin/actions','POST',{action,...values});
     await refresh();
@@ -307,7 +333,7 @@ async function saveSiteRole(event){
   const user=state.users.find(x=>x.id===user_id);
   if(!user){notice('اختر حسابًا صحيحًا.','error');return;}
   if(enabled){
-    const typed=window.prompt('للتأكيد على منح صلاحية مدير الموقع الكاملة، اكتب: مدير الموقع');
+    const typed=await adminDialog('للتأكيد على منح صلاحية مدير الموقع الكاملة، اكتب: مدير الموقع',true);
     if(typed!=='مدير الموقع')return;
   }
   await adminAction('user.role',{user_id,enabled},
