@@ -32,7 +32,7 @@ function membershipFor(schoolId){
 }
 function maySeeMembers(){
   const m=membershipFor(state.selected);
-  return state.user?.role==='site_admin'||m?.access_role==='school_principal';
+  return m?.access_role==='school_principal';
 }
 function schoolById(id){return state.schools.find(s=>s.id===id);}
 function navigate(section){
@@ -61,8 +61,7 @@ function populateMemberships(){
     const member=membershipFor(school.id);
     const item=makeText('div','', 'admin-mini-item');
     const schoolName=makeText('b',school.name);
-    const label=makeText('small',state.user.role==='site_admin'?'مدير الموقع':(
-      roleNames[member?.access_role]||'عضوية مدرسية'));
+    const label=makeText('small',roleNames[member?.access_role]||'عضوية مدرسية');
     item.replaceChildren(schoolName,label);
     list.append(item);
   }
@@ -93,9 +92,9 @@ function displaySchool(){
   const chosen=schoolById(state.selected);
   if(!chosen)return;
   const member=membershipFor(chosen.id);
-  const role=state.user.role==='site_admin'?'site_admin':member?.access_role||'employee';
+  const role=member?.access_role||'employee';
   $('stat-role').textContent=roleNames[role]||role;
-  $('stat-job').textContent=state.user.role==='site_admin'?'إدارة الموقع':jobNames[member?.job_role]||'غير محدد';
+  $('stat-job').textContent=jobNames[member?.job_role]||'غير محدد';
   $('top-school-role').textContent=roleNames[role]||role;
   $('membership-badge').textContent=roleNames[role]||role;
   $('current-school-title').textContent=chosen.name;
@@ -156,7 +155,7 @@ async function initialize(){
     $('top-user-name').textContent=state.user.name||'مستخدم';
     const granted=new Set((state.user.schoolMemberships||[]).map(m=>m.school_id));
     state.schools=(Array.isArray(schools.schools)?schools.schools:[])
-      .filter(s=>state.user.role==='site_admin'||granted.has(s.id));
+      .filter(s=>granted.has(s.id));
     if(!state.schools.length){notice('لم تُعتمد عضوية في مدرسة نشطة لهذا الحساب.');return;}
     const picker=$('school-picker');picker.replaceChildren();
     for(const school of state.schools)picker.add(new Option(school.name,school.id));
