@@ -5,7 +5,7 @@
 <meta name="theme-color" content="#075b64"><meta name="robots" content="noindex,nofollow">
 <title>مساحة المدرسة | إتقان سمارت برو</title>
 <link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/admin.css"><link rel="stylesheet" href="/school.css">
-<script src="/school.js" defer></script><script src="/personnel-admin.js" defer></script>
+<script src="/school.js" defer></script><script src="/personnel-admin.js" defer></script><script type="module" src="/personnel-import-ui.js"></script>
 </head>
 <body data-view="school" class="admin-app nav-expanded">
 <header class="admin-topbar">
@@ -61,6 +61,22 @@
         </div>
         <div id="personnel-message" class="alert" role="status" aria-live="polite" hidden></div>
         <div data-personnel-panel="profiles">
+          <details id="personnel-import-section" class="personnel-transfer-block">
+            <summary><strong>استيراد منسوبي المدرسة من Excel بصيغة CSV</strong></summary>
+            <p>احفظ جدول Excel بصيغة CSV (UTF-8) مع الأعمدة: الاسم الكامل، رقم الموظف، رقم السجل المدني، العام الدراسي. تُضاف ملفات الموظفين دون إنشاء حسابات دخول أو عضويات.</p>
+            <form id="personnel-import-form" class="personnel-approval-form">
+              <label>الملف <input id="personnel-import-file" type="file" accept=".csv,text/csv" required></label>
+              <label>العام الدراسي المعتمد <select id="personnel-import-year" required><option value="">اختر العام الدراسي</option></select></label>
+              <div><button id="personnel-import-preview" type="button" class="button">معاينة وفحص الملف</button></div>
+            </form>
+            <div id="personnel-import-message" class="alert" role="status" aria-live="polite" hidden></div>
+            <div id="personnel-import-summary" hidden>
+              <p id="personnel-import-counts"></p>
+              <div class="table-scroll"><table class="admin-table"><thead><tr><th>رقم الصف</th><th>اسم الموظف</th><th>رقم الموظف</th><th>النتيجة</th></tr></thead><tbody id="personnel-import-rows"></tbody></table></div>
+              <p class="note">المعاينة لا تحفظ بيانات. عند الاعتماد تُرسل الدفعات عبر اتصال محمي؛ لن تُحدّث الملفات الموجودة تلقائيًا.</p>
+              <button id="personnel-import-commit" type="button" class="button" disabled>اعتماد استيراد الملفات الصحيحة</button>
+            </div>
+          </details>
           <h2>الملفات الوظيفية المعتمدة</h2>
           <p>الرقم الوظيفي خاص بهذه المدرسة. لا يُنشأ ملف معتمد إلا بعد التحقق وموافقة المدير.</p>
           <div class="table-scroll"><table class="admin-table"><thead><tr><th>اسم الموظف</th><th>رقم الموظف</th><th>الحالة</th><th>التخصص</th></tr></thead><tbody id="personnel-profiles-body"></tbody></table></div>
