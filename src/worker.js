@@ -645,6 +645,41 @@ async function api(request, env, pathname) {
     return json({error:'طريقة الطلب غير مسموحة.'},405,current.cookies);
   }
 
+  // #47: only a verified, active school principal may approve an atomic batch import.
+  if(pathname==='/api/personnel/bulk-import' && request.method==='POST'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const body=await input(request,128000);
+    if(!body||!uuidValid(body.school_id)||!uuidValid(body.year_id)||
+       !Array.isArray(body.rows)||body.rows.length<1||body.rows.length>50||
+       Object.keys(body).some(k=>!['school_id','year_id','rows'].includes(k))||
+       !current.user.schoolMemberships.some(m=>m.school_id===body.school_id&&m.access_role==='school_principal'))
+      return json({error:'بيانات الاستيراد أو الصلاحية غير صالحة.'},403,current.cookies);
+    const permitted=['full_name','national_id','employee_number','specialization','job_title_id'];
+    for(const r of body.rows){
+      if(!r||typeof r!=='object'||Array.isArray(r)||
+         Object.keys(r).some(k=>!permitted.includes(k))||
+         typeof r.full_name!=='string'||r.full_name.trim().length<2||r.full_name.length>200||
+         typeof r.employee_number!=='string'||r.employee_number.length<1||r.employee_number.length>80||
+         typeof r.national_id!=='string'||!/^[0-9]{10}$/.test(r.national_id)||
+         (r.specialization!=null&&(typeof r.specialization!=='string'||r.specialization.length>120))||
+         (r.job_title_id!=null&&r.job_title_id!==''&&!uuidValid(r.job_title_id)))
+         return json({error:'أحد صفوف الاستيراد غير صالح.'},422,current.cookies);
+    }
+    const rows=body.rows.map(r=>({full_name:r.full_name.trim(),
+      employee_number:r.employee_number.trim(),national_id:r.national_id,
+      specialization:r.specialization||null,job_title_id:r.job_title_id||null}));
+    const result=await backend(env,'/rest/v1/rpc/itqan_school_import_profiles','POST',{
+      p_school:body.school_id,p_year:body.year_id,p_rows:rows},current.token);
+    if(!result.ok){
+      const code=result.data?.code;
+      return json({error:code==='23505'?'توجد بيانات مكررة أو متعارضة؛ لم يتم حفظ الدفعة.':
+        code==='42501'?'لا تملك صلاحية الاستيراد.':'تعذر اعتماد دفعة الاستيراد.',
+        code:code==='23505'?'IMPORT_CONFLICT':'IMPORT_FAILED'},
+        code==='23505'?409:code==='42501'?403:422,current.cookies);
+    }
+    return json({result:result.data},200,current.cookies);
+  }
   if(pathname==='/api/school/personnel' && request.method==='GET'){
     const current=await session(request,env);
     if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
