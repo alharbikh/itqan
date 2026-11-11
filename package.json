@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check src/worker.js && node --check public/app.js && node --check public/admin.js && node --check public/admin-preview.js && node --check public/school.js && node --check public/personnel-admin.js && node --check public/link.js && node --check public/frameworks.js && node --check public/performance.js"
+    "check": "node --check src/worker.js && node --check public/app.js && node --check public/admin.js && node --check public/admin-preview.js && node --check public/school.js && node --check public/personnel-admin.js && node --check public/link.js && node --check public/frameworks.js && node --check public/performance.js && node --check public/school-invitations.js && node --check public/invitations.js && node --check public/personnel-import-ui.js && node --check public/school-registration.js && node --check public/personal.js"
   },
   "engines": {
     "node": ">=20"

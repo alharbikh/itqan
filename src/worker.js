@@ -185,6 +185,12 @@ function schoolFailure(result,operation,cookies){
 
 async function api(request, env, pathname) {
   if (['POST','PATCH','PUT','DELETE'].includes(request.method) && !sameOrigin(request)) return json({ error: 'Forbidden' }, 403);
+  // #47: old employee-originated school applications are retired, including legacy clients.
+  if(request.method==='POST'&&['/api/personnel/requests','/api/school/link-request'].includes(pathname)){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    return json({error:'يبدأ الارتباط المدرسي بدعوة من مدير المدرسة فقط.',code:'SCHOOL_INVITATION_REQUIRED'},403,current.cookies);
+  }
   if(pathname==='/api/password/recovery/request' && request.method==='POST'){
     const body=await input(request);
     if(!body || !emailValid(body.email) || Object.keys(body).some(k=>k!=='email'))
@@ -1152,6 +1158,59 @@ async function api(request, env, pathname) {
     return result.ok?json({ok:true,result:result.data},200,current.cookies):
       json({error:result.data?.code==='42501'?'Forbidden':'Exception incomplete or invalid'},
         result.data?.code==='42501'?403:422,current.cookies);
+  }
+  // #47: school-manager-originated invitations, with explicit recipient consent.
+  if(pathname==='/api/school/invitations'||pathname==='/api/school/invitations/cancel'||
+     pathname==='/api/invitations/mine'||pathname==='/api/invitations/decision'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const authorizedSchool=schoolId=>uuidValid(schoolId)&&current.user.schoolMemberships.some(
+      m=>m.school_id===schoolId&&m.access_role==='school_principal');
+    const invoke=async(name,params,successStatus=200)=>{
+      const r=await backend(env,'/rest/v1/rpc/'+name,'POST',params,current.token);
+      if(!r.ok){
+        const c=r.data?.code;
+        const status=c==='42501'?403:c==='23505'?409:c==='22023'?422:502;
+        return json({error:status===403?'ليس لديك صلاحية لهذه الدعوة.':
+          status===409?'يوجد ارتباط أو دعوة متعارضة.':
+          status===422?'الدعوة غير صالحة أو منتهية.':'تعذر معالجة الدعوة.'},status,current.cookies);
+      }
+      return json({result:r.data},successStatus,current.cookies);
+    };
+    if(pathname==='/api/invitations/mine'&&request.method==='GET')
+      return invoke('itqan_school_invitation_mine',{});
+    if(pathname==='/api/invitations/decision'&&request.method==='POST'){
+      const b=await input(request);
+      if(!b||!uuidValid(b.invitation_id)||typeof b.accept!=='boolean'||
+         Object.keys(b).some(k=>!['invitation_id','accept'].includes(k)))
+        return json({error:'بيانات الدعوة غير صالحة.'},400,current.cookies);
+      return invoke('itqan_school_invitation_decide',{p_invitation:b.invitation_id,p_accept:b.accept});
+    }
+    const schoolId=request.method==='GET'?new URL(request.url).searchParams.get('school_id'):null;
+    if(pathname==='/api/school/invitations'&&request.method==='GET'){
+      if(!authorizedSchool(schoolId))return json({error:'Forbidden'},403,current.cookies);
+      return invoke('itqan_school_invitation_list',{p_school:schoolId});
+    }
+    if(request.method==='POST'){
+      const b=await input(request);
+      if(!b||!authorizedSchool(b.school_id))
+        return json({error:'مدرسة غير صالحة أو صلاحية غير متاحة.'},403,current.cookies);
+      if(pathname==='/api/school/invitations'){
+        if(!uuidValid(b.profile_id)||!emailValid(b.email)||!['school','personal'].includes(b.mode)||
+           Object.keys(b).some(k=>!['school_id','profile_id','email','mode'].includes(k)))
+          return json({error:'تحقق من بيانات الدعوة.'},400,current.cookies);
+        return invoke('itqan_school_invitation_create',{p_school:b.school_id,
+          p_profile:b.profile_id,p_email:b.email.trim().toLowerCase(),p_mode:b.mode},201);
+      }
+      if(pathname==='/api/school/invitations/cancel'){
+        if(!uuidValid(b.invitation_id)||
+           Object.keys(b).some(k=>!['school_id','invitation_id'].includes(k)))
+          return json({error:'معرف الدعوة غير صالح.'},400,current.cookies);
+        return invoke('itqan_school_invitation_cancel',{p_school:b.school_id,
+          p_invitation:b.invitation_id});
+      }
+    }
+    return json({error:'طريقة الطلب غير مسموحة.'},405,current.cookies);
   }
   // Personnel linking operations use authenticated, auditable PostgreSQL RPCs.
   if (['/api/school/personnel','/api/school/link-request','/api/school/link-decision',
