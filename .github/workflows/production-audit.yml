@@ -44,7 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Pull requests are prospective; compare deployed production with main,
+      # not with UI changes that have not been published yet.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && 'main' || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

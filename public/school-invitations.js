@@ -18,7 +18,7 @@ const mailLink=(email,id)=>{
  '&body='+encodeURIComponent('تمت دعوتك إلى ملف وظيفي مدرسي في إتقان. افتح الرابط، وسجّل دخولك ببريد الدعوة نفسه، ثم وافق على الانضمام:\n'+inviteUrl(id));
  return a;
 };
-let school='',profileMap=new Map();
+let school='',profileMap=new Map(),staffIndex=new Map(),prepared=null;
 async function refresh(){
  const selected=schoolPicker.value;if(!selected){return;}
  school=selected;
@@ -29,6 +29,7 @@ async function refresh(){
   if(schoolPicker.value!==selected)return;
   const profiles=summary.profiles||[];
   profileMap=new Map(profiles.filter(p=>p.status==='active').map(p=>[p.id,p.full_name]));
+  staffIndex=new Map(profiles.filter(p=>p.status==='active').map(p=>[String(p.employee_number),p.id]));
   const selector=$('school-invite-profile');selector.replaceChildren(new Option('اختر ملفًا وظيفيًا معتمدًا',''));
   for(const [id,label] of profileMap)selector.add(new Option(label,id));
   const list=$('school-invite-list');list.replaceChildren();
@@ -74,6 +75,89 @@ form.addEventListener('submit',async e=>{
  finally{button.disabled=false;}
 });
 schoolPicker.addEventListener('change',()=>{school=schoolPicker.value;refresh();});
+
+const bulkFile=$('school-invite-bulk-file'),bulkPreview=$('school-invite-bulk-preview');
+const bulkCreate=$('school-invite-bulk-create'),bulkMessage=$('school-invite-bulk-message');
+const bulkResults=$('school-invite-bulk-results');
+const bulkSay=(text,failed=false)=>{bulkMessage.textContent=text;bulkMessage.className='alert '+(failed?'error':'success');bulkMessage.hidden=false;};
+const bulkReset=()=>{prepared=null;bulkCreate.disabled=true;$('school-invite-bulk-summary').hidden=true;bulkResults.replaceChildren();};
+const headers={employee_number:'number','رقم الموظف':'number','الرقم الوظيفي':'number',
+ email:'email','البريد الإلكتروني':'email','البريد الالكتروني':'email',
+ mode:'mode','نوع الحساب':'mode'};
+function askBulk(count){
+ return new Promise(resolve=>{
+  const dialog=document.createElement('dialog');dialog.className='itqan-confirm-dialog';dialog.dir='rtl';
+  dialog.setAttribute('aria-label','تأكيد الدعوات الجماعية');
+  const text=node('p','سيتم إنشاء '+count+' دعوة مدرسية دون إنشاء حسابات أو عضويات. ستحتاج إلى إرسال الروابط للمستلمين. هل تؤكد؟');
+  const actions=node('div','');actions.className='itqan-confirm-actions';
+  const cancel=node('button','إلغاء'),yes=node('button','تأكيد');
+  cancel.type=yes.type='button';cancel.className=yes.className='itqan-confirm-button';
+  actions.append(cancel,yes);dialog.append(text,actions);document.body.append(dialog);
+  let settled=false;const finish=value=>{if(settled)return;settled=true;dialog.close();dialog.remove();resolve(value);};
+  cancel.onclick=()=>finish(false);yes.onclick=()=>finish(true);
+  dialog.addEventListener('cancel',event=>{event.preventDefault();finish(false);});
+  dialog.addEventListener('close',()=>finish(false));
+  dialog.showModal();cancel.focus();
+ });
+}
+bulkFile.addEventListener('change',bulkReset);
+bulkPreview.addEventListener('click',async()=>{
+ bulkReset();
+ const file=bulkFile.files?.[0],selected=schoolPicker.value;
+ if(!selected||!file){bulkSay('اختر المدرسة وملف CSV أولًا.',true);return;}
+ if(file.size>1024*1024){bulkSay('ملف CSV يتجاوز الحد المسموح (1MB).',true);return;}
+ try{
+  const {parseCsv}=await import('/personnel-import-csv.js');
+  const records=parseCsv(await file.text(),{maxRows:500});
+  if(records.length<2){bulkSay('ملف الدعوات لا يحتوي موظفين.',true);return;}
+  const columns=records[0].map(x=>headers[String(x).trim().toLowerCase()]||null);
+  if(!columns.includes('number')||!columns.includes('email')||
+     columns.filter(Boolean).some((c,i,a)=>a.indexOf(c)!==i))
+   {bulkSay('يجب توفير عمود رقم الموظف والبريد الإلكتروني دون تكرار.',true);return;}
+  if(records.length>101){bulkSay('حد المعاينة 100 موظف لكل دفعة.',true);return;}
+  const ids=new Set(),entries=[],issues=[];
+  for(let i=1;i<records.length;i++){
+   const values=records[i],row=Object.fromEntries(columns.map((c,j)=>[c,values[j]?.trim()||'']).filter(x=>x[0]));
+   const id=staffIndex.get(row.number);
+   const mode=row.mode||'school';
+   const email=row.email?.toLowerCase()||'';
+   let reason='';
+   if(values.length!==columns.length)reason='عدد الأعمدة غير صحيح';
+   else if(!id)reason='رقم الموظف غير موجود في الملفات المعتمدة لهذه المدرسة';
+   else if(ids.has(id))reason='ملف الموظف مكرر في ملف الدعوات';
+   else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)reason='بريد إلكتروني غير صالح';
+   else if(!['school','personal'].includes(mode))reason='نوع حساب غير معروف';
+   if(reason){issues.push('الصف '+(i+1)+': '+reason);continue;}
+   ids.add(id);entries.push({profile_id:id,email,mode,number:row.number});
+  }
+  $('school-invite-bulk-counts').textContent='صالح: '+entries.length+'، يحتاج مراجعة: '+issues.length+'.';
+  for(const issue of issues.slice(0,15))bulkResults.append(node('p',issue));
+  if(issues.length>15)bulkResults.append(node('p','توجد أخطاء إضافية؛ صحّح الملف وأعد المعاينة.'));
+  $('school-invite-bulk-summary').hidden=false;
+  prepared={school:selected,entries};bulkCreate.disabled=!entries.length;
+  bulkSay('المعاينة جاهزة. لم تُنشأ أي دعوات حتى الآن.');
+ }catch(error){bulkSay(error.message||'تعذرت قراءة ملف الدعوات.',true);}
+});
+bulkCreate.addEventListener('click',async()=>{
+ if(!prepared||!prepared.entries.length||prepared.school!==schoolPicker.value){
+  bulkSay('تغيّرت المدرسة أو المعاينة. أعد الفحص.',true);bulkReset();return;
+ }
+ if(!await askBulk(prepared.entries.length))return;
+ const entries=prepared.entries;prepared=null;bulkCreate.disabled=true;
+ bulkResults.replaceChildren();let created=0,failed=0;
+ for(const row of entries){
+  try{
+   const id=await api('/api/school/invitations','POST',{
+     school_id:schoolPicker.value,profile_id:row.profile_id,email:row.email,mode:row.mode});
+   const p=node('p','رقم الموظف '+row.number+': ');
+   p.append(mailLink(row.email,id));bulkResults.append(p);created++;
+  }catch(e){failed++;bulkResults.append(node('p','رقم الموظف '+row.number+': '+e.message));}
+ }
+ bulkSay('أُنشئت '+created+' دعوة، وتعذرت '+failed+'. لم تُرسل رسائل بريد آليًا؛ استخدم روابط الإرسال بجوار كل موظف.',failed>0);
+ await refresh();
+});
+
+
 for(const tab of document.querySelectorAll('[data-personnel-tab]')){
  if(tab.dataset.personnelTab==='invitations')tab.addEventListener('click',refresh);
 }
