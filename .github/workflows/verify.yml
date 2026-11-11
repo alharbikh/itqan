@@ -84,6 +84,16 @@ jobs:
           DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
           test -n "$DB_CONTAINER"
           docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/school_personnel_new_workflow.sql
+      - name: Verify intentionally closed RLS tables have no browser DML grants
+        run: |
+          DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
+          test -n "$DB_CONTAINER"
+          docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/closed_tables_exposure.sql
+      - name: Reject disabled user tokens in privileged RPCs
+        run: |
+          DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
+          test -n "$DB_CONTAINER"
+          docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/disabled_account_rpc_guard.sql
       - name: Stop disposable database
         if: always()
         run: supabase stop --no-backup || true
