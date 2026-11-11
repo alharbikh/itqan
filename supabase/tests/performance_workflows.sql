@@ -129,12 +129,13 @@ begin
  perform public.itqan_school_exception_score(request_id,criterion_one,5::smallint,'Strong result');
  perform public.itqan_school_exception_score(request_id,criterion_two,4::smallint,'Above average');
  result:=public.itqan_school_exception_submit(request_id);
- if result<>94 then raise exception 'Weighted exceptional score incorrect %',result;end if;
+ if result<>4.7 then raise exception 'Official exceptional weighted mean incorrect %',result;end if;
  if not exists(select 1 from public.review_exception_requests where id=request_id
    and status='expired' and revoked_at is not null) then
   raise exception 'Exception remained active after submitting';end if;
  if not exists(select 1 from public.performance_reviews where id=review_id
-   and status='submitted' and final_score_100=94) then
+   and status='submitted' and final_score_5_exact=4.7
+   and final_rating_5=5 and final_score_100 is null) then
   raise exception 'Exceptional submitted review incorrect';end if;
 end $$;
 rollback;
