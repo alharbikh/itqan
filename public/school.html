@@ -128,6 +128,20 @@
             <div id="school-invite-message" class="alert" role="status" aria-live="polite" hidden></div>
             <button type="submit" class="button">إنشاء الدعوة وتجهيز بريد الإرسال</button>
           </form>
+          <details id="school-invite-bulk-block" class="personnel-transfer-block">
+            <summary><strong>إنشاء دعوات جماعية من CSV (Excel)</strong></summary>
+            <p>صدّر الأعمدة من Excel إلى CSV بترميز UTF-8: رقم الموظف، البريد الإلكتروني، نوع الحساب (school أو personal). يجب أن تكون الملفات الوظيفية معتمدة داخل المدرسة أولًا. المعاينة لا ترسل رسائل ولا تنشئ عضويات.</p>
+            <div class="personnel-approval-form">
+              <label>ملف الدعوات <input id="school-invite-bulk-file" type="file" accept=".csv,text/csv"></label>
+              <div><button id="school-invite-bulk-preview" type="button" class="button">معاينة وفحص الدعوات</button></div>
+              <div id="school-invite-bulk-message" class="alert" role="status" aria-live="polite" hidden></div>
+              <div id="school-invite-bulk-summary" hidden>
+                <p id="school-invite-bulk-counts"></p>
+                <button id="school-invite-bulk-create" type="button" class="button" disabled>تأكيد إنشاء الدعوات المعتمدة</button>
+              </div>
+              <div id="school-invite-bulk-results" class="personnel-list" aria-live="polite"></div>
+            </div>
+          </details>
           <div id="school-invite-share" hidden></div>
           <h3>الدعوات المدرسية</h3>
           <div id="school-invite-list" class="personnel-list"></div>
