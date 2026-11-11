@@ -27,3 +27,8 @@
 .personnel-approval-form :is(input,select){max-width:100%;width:100%;box-sizing:border-box}
 .personnel-sensitive{padding:.7rem;border:1px solid #d4aa5b;border-radius:8px;background:#fff9ec;direction:rtl}
 @media(max-width:700px){.personnel-approval-form{grid-template-columns:1fr}.personnel-tabs{flex-direction:column}}
+
+/* School service links/buttons are functional navigation, not disabled placeholders. */
+a.school-service,button.school-service{font:inherit;text-align:start;text-decoration:none;color:inherit;cursor:pointer;width:100%}
+a.school-service:hover,button.school-service:hover{background:#e9f5f2;border-color:#9accc1}
+a.school-service:focus-visible,button.school-service:focus-visible{outline:3px solid #70c6bc;outline-offset:2px}
