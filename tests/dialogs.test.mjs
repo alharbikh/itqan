@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const files = ['admin', 'link', 'performance', 'personnel-admin'];
+const files = ['admin', 'link', 'performance', 'personnel-admin', 'frameworks'];
 const css = readFileSync(new URL('../public/app.css', import.meta.url), 'utf8');
 
 test('shared confirmation dialog is styled only with CSP-compatible external CSS', () => {
@@ -30,4 +30,16 @@ test('Cloudflare CSP keeps inline styles disabled for application pages', () => 
   const worker = readFileSync(new URL('../src/worker.js', import.meta.url), 'utf8');
   assert.match(worker, /style-src 'self'/);
   assert.doesNotMatch(worker, /style-src[^;\n]*'unsafe-inline'/);
+});
+
+test('framework administration retains the unified sidebar and three display states', () => {
+  const html=readFileSync(new URL('../public/frameworks.html',import.meta.url),'utf8');
+  const script=readFileSync(new URL('../public/frameworks.js',import.meta.url),'utf8');
+  for(const fragment of ['href="/admin.css"', 'id="admin-sidebar"', 'id="nav-toggle"',
+    'id="admin-scrim"', 'class="admin-content"', 'aria-current="page"']) {
+    assert.ok(html.includes(fragment), 'framework sidebar missing '+fragment);
+  }
+  assert.match(script,/navMode=\{expanded:'icons',icons:'hidden',hidden:'expanded'\}/);
+  assert.match(script,/nav-mobile-open/);
+  assert.match(script,/confirmFrameworkAction\(/);
 });
