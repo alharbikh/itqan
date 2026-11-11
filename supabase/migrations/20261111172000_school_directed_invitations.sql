@@ -220,3 +220,9 @@ end
 $fn$;
 revoke all on function public.itqan_school_invitation_cancel(uuid,uuid) from public,anon;
 grant execute on function public.itqan_school_invitation_cancel(uuid,uuid) to authenticated;
+
+-- The school now initiates every new membership: disable both former self-request RPC paths.
+revoke all on function public.itqan_personnel_submit_request(uuid,text,text,uuid,text)
+  from public,anon,authenticated;
+revoke all on function public.itqan_school_request_link(uuid)
+  from public,anon,authenticated;
