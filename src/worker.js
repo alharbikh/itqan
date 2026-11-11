@@ -186,8 +186,11 @@ function schoolFailure(result,operation,cookies){
 async function api(request, env, pathname) {
   if (['POST','PATCH','PUT','DELETE'].includes(request.method) && !sameOrigin(request)) return json({ error: 'Forbidden' }, 403);
   // #47: old employee-originated school applications are retired, including legacy clients.
-  if(request.method==='POST'&&['/api/personnel/requests','/api/school/link-request'].includes(pathname))
-    return json({error:'يبدأ الارتباط المدرسي بدعوة من مدير المدرسة فقط.',code:'SCHOOL_INVITATION_REQUIRED'},403);
+  if(request.method==='POST'&&['/api/personnel/requests','/api/school/link-request'].includes(pathname)){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    return json({error:'يبدأ الارتباط المدرسي بدعوة من مدير المدرسة فقط.',code:'SCHOOL_INVITATION_REQUIRED'},403,current.cookies);
+  }
   if(pathname==='/api/password/recovery/request' && request.method==='POST'){
     const body=await input(request);
     if(!body || !emailValid(body.email) || Object.keys(body).some(k=>k!=='email'))
