@@ -61,7 +61,7 @@
 
 | المسار | الحالة المثبتة | مرجع |
 |---|---|---|
-| تاريخ ترحيلات Supabase | تسوية 8 إصدارات تاريخية، ثم تطبيق 5 ترحيلات أمنية وفصل أدوار؛ سجل إنتاج **45 ترحيلًا** | [#26](https://github.com/alharbikh/itqan/issues/26)، [#24](https://github.com/alharbikh/itqan/issues/24)، [#37](https://github.com/alharbikh/itqan/issues/37) |
+| تاريخ ترحيلات Supabase | تسوية 8 إصدارات تاريخية، ثم تطبيق ترحيلات أمنية متتابعة وفصل أدوار؛ سجل إنتاج **45 ترحيلًا** | [#26](https://github.com/alharbikh/itqan/issues/26)، [#24](https://github.com/alharbikh/itqan/issues/24)، [#37](https://github.com/alharbikh/itqan/issues/37) |
 | صلاحيات البيانات | `TRUNCATE/TRIGGER/REFERENCES` للأدوار العامة = صفر؛ `site_admin` لا يرث `school.*`؛ يحتفظ بأربع صلاحيات `system.*` | PR #30، #31، #33، #34، #36، #38 |
 | تعدد الأدوار | حساب واحد يمكنه حمل مدير موقع ومدير مدرسة لمدرسة محددة، دون توسيع صلاحياته إلى مدارس أخرى | `docs/ITQAN_GOVERNANCE.md`، `supabase/tests/separate_site_school_roles.sql` |
 | Worker | تطابق Git blob SHA-1 لمصدر Worker المنشور في Cloudflare مع `src/worker.js` على `main`: `1170f04ecb834e3a1472f5e5210dc1892e6f660f` وقت الفحص | [#39](https://github.com/alharbikh/itqan/issues/39)، PR #40 |
