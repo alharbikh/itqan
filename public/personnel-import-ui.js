@@ -115,7 +115,7 @@ if(form){
       }
       notice('انتهى استيراد الملفات: جديد '+created+'، موجود دون تغيير '+skipped+'.',false,true);
       preview=null;
-      if(window.itqanPersonnelAdmin?.load)await window.itqanPersonnelAdmin.load(preview?.school||$('school-picker').value);
+      if(window.itqanPersonnelAdmin?.load)await window.itqanPersonnelAdmin.load($('school-picker').value);
     }catch(e){
       notice('توقف الاستيراد بعد إنشاء '+created+' ملفًا وتجاوز '+skipped+
        ' سجلًا موجودًا. الدفعات الناجحة محفوظة، أصلح الخطأ وأعد معاينة الملف: '+e.message,true,true);
