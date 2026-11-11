@@ -33,7 +33,8 @@ BEGIN
  IF itqan_private.has_school_permission('a4444444-4444-4444-8444-444444444444','school.manage_reviews')
  OR itqan_private.has_school_permission('a5555555-5555-4555-8555-555555555555','school.publish_reviews')
  OR itqan_private.has_school_permission('a4444444-4444-4444-8444-444444444444','school.manage_members')
- OR itqan_private.has_school_permission('a5555555-5555-4555-8555-555555555555','school.view') THEN
+ OR itqan_private.has_school_permission('a5555555-5555-4555-8555-555555555555','school.view')
+ OR itqan_private.has_school_permission('a4444444-4444-4444-8444-444444444444','self.manage_portfolio') THEN
   RAISE EXCEPTION 'Central site administrator inherited school authority';
  END IF;
 END $site_only$;
@@ -55,8 +56,10 @@ END $principal_only$;
 DO $employee_only$
 BEGIN
  PERFORM set_config('request.jwt.claim.sub','a3333333-3333-4333-8333-333333333333',true);
- IF NOT itqan_private.has_school_permission('a4444444-4444-4444-8444-444444444444','school.view')
+ IF NOT itqan_private.has_school_permission('a4444444-4444-4444-8444-444444444444','self.manage_portfolio')
+ OR NOT itqan_private.has_school_permission('a4444444-4444-4444-8444-444444444444','school.view')
  OR itqan_private.has_school_permission('a4444444-4444-4444-8444-444444444444','school.manage_reviews')
+ OR itqan_private.has_school_permission('a5555555-5555-4555-8555-555555555555','self.manage_portfolio')
  OR itqan_private.has_school_permission('a5555555-5555-4555-8555-555555555555','school.view')
  OR itqan_private.has_system_permission('system.manage_users') THEN
   RAISE EXCEPTION 'Employee permissions or school scope invalid';
