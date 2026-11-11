@@ -8,6 +8,12 @@ on:
       - scripts/verify-public-assets.mjs
       - scripts/verify-deployed-worker.mjs
       - tests/deployment-provenance.test.mjs
+  pull_request:
+    paths:
+      - .github/workflows/production-audit.yml
+      - scripts/verify-public-assets.mjs
+      - scripts/verify-deployed-worker.mjs
+      - tests/deployment-provenance.test.mjs
 
 permissions:
   contents: read
