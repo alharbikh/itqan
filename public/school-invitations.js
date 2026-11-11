@@ -90,7 +90,18 @@ if(tempForm){
   e.preventDefault();clearTemp();
   const id=$('school-temp-profile').value;
   if(!schoolPicker.value||!profileMap.has(id)){tempSay('اختر ملفًا وظيفيًا معتمدًا.',true);return;}
-  if(!await askBulk(1))return;
+  if(!await (async()=>new Promise(resolve=>{
+   const dialog=document.createElement('dialog');dialog.dir='rtl';dialog.className='itqan-confirm-dialog';
+   const p=node('p','هل تحققت من هوية صاحب الملف وتعذر إرسال الدعوة إليه؟ ستُنشأ له بيانات دخول مدرسية مستقلة مؤقتة.');
+   const buttons=node('div','');buttons.className='itqan-confirm-actions';
+   const cancel=node('button','إلغاء'),yes=node('button','تأكيد');
+   cancel.type=yes.type='button';cancel.className=yes.className='itqan-confirm-button';
+   buttons.append(cancel,yes);dialog.append(p,buttons);document.body.append(dialog);
+   let done=false;const finish=x=>{if(done)return;done=true;dialog.close();dialog.remove();resolve(x);};
+   cancel.onclick=()=>finish(false);yes.onclick=()=>finish(true);
+   dialog.addEventListener('cancel',e=>{e.preventDefault();finish(false);});
+   dialog.addEventListener('close',()=>finish(false));dialog.showModal();cancel.focus();
+  }))())return;
   const button=tempForm.querySelector('button[type="submit"]');button.disabled=true;
   try{
    const result=await api('/api/school/accounts/temporary','POST',{
