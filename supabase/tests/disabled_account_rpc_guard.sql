@@ -21,7 +21,9 @@ BEGIN
 
  FOR current_case IN SELECT unnest(ARRAY[
   'itqan_personnel_my_profiles','itqan_personnel_my_requests',
-  'itqan_employee_ack_midyear','itqan_school_score_criterion','itqan_school_submit_review'
+  'itqan_employee_ack_midyear','itqan_school_score_criterion','itqan_school_submit_review',
+  'itqan_school_exception_criteria','itqan_school_exception_score',
+  'itqan_school_exception_submit','itqan_school_request_review_exception'
  ]) LOOP
   blocked:=false;
   BEGIN
@@ -32,6 +34,14 @@ BEGIN
     WHEN 'itqan_school_score_criterion' THEN
       PERFORM public.itqan_school_score_criterion(NULL::uuid,NULL::uuid,NULL::smallint,NULL::text);
     WHEN 'itqan_school_submit_review' THEN PERFORM public.itqan_school_submit_review(NULL::uuid);
+    WHEN 'itqan_school_exception_criteria' THEN
+      PERFORM * FROM public.itqan_school_exception_criteria(NULL::uuid);
+    WHEN 'itqan_school_exception_score' THEN
+      PERFORM public.itqan_school_exception_score(NULL::uuid,NULL::uuid,NULL::smallint,NULL::text);
+    WHEN 'itqan_school_exception_submit' THEN
+      PERFORM public.itqan_school_exception_submit(NULL::uuid);
+    WHEN 'itqan_school_request_review_exception' THEN
+      PERFORM public.itqan_school_request_review_exception(NULL::uuid,NULL::text);
    END CASE;
   EXCEPTION WHEN insufficient_privilege THEN
    GET STACKED DIAGNOSTICS error_message=MESSAGE_TEXT;
