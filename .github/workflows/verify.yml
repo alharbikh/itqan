@@ -114,6 +114,11 @@ jobs:
           DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
           test -n "$DB_CONTAINER"
           docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/separate_site_school_roles.sql
+      - name: Assert complete security release migration sequence and role separation
+        run: |
+          DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
+          test -n "$DB_CONTAINER"
+          docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/role_separation_release_gate.sql
       - name: Stop disposable database
         if: always()
         run: supabase stop --no-backup || true
