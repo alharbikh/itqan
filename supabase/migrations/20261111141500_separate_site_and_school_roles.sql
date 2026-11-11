@@ -17,7 +17,7 @@ SET search_path TO ''
 AS $function$
  SELECT (SELECT auth.uid()) IS NOT NULL
   AND p_school IS NOT NULL
-  AND p_perm LIKE 'school.%'
+  AND (p_perm LIKE 'school.%' OR p_perm LIKE 'self.%')
   AND EXISTS (
     SELECT 1
     FROM public.school_memberships m
