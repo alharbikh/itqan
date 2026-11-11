@@ -1169,8 +1169,10 @@ async function api(request, env, pathname) {
     const schoolId=new URL(request.url).searchParams.get('school_id');
     if (!schoolId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(schoolId))
       return json({error:'Invalid school'},400,current.cookies);
-    const canView=current.user.role==='site_admin' ||
-      current.user.schoolMemberships.some(m=>m.school_id===schoolId && m.access_role==='school_principal');
+    // Site administration does not grant school-principal access.
+    // A dual-role user needs an explicit active principal membership here.
+    const canView=current.user.schoolMemberships.some(m=>
+      m.school_id===schoolId && m.access_role==='school_principal');
     if(!canView)return json({error:'Forbidden'},403,current.cookies);
     const memberships=await backend(env,
       '/rest/v1/school_memberships?select=user_id,access_role,job_role,status&school_id=eq.'+schoolId+
@@ -1262,8 +1264,7 @@ export default {
         if(current.user.mustChangePassword)return redirect('/password.html',current.cookies);
         if(['admin','frameworks'].includes(target.section)&&current.user.role!=='site_admin')
           return accessDeniedPage(request,env,'forbidden',current.cookies);
-        if(target.section==='school'&&current.user.role!=='site_admin'&&
-            current.user.schoolMemberships.length===0)
+        if(target.section==='school'&&current.user.schoolMemberships.length===0)
           return accessDeniedPage(request,env,'membership',current.cookies);
         const page=await explicitHtmlAsset(request,env,target.asset,true);
         for(const cookie of current.cookies)page.headers.append('set-cookie',cookie);
