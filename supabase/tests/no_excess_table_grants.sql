@@ -1,5 +1,5 @@
 -- Validate that application roles cannot execute RLS-bypassing table operations.
--- Run only after candidate_revoke_excess_table_grants.sql in isolated CI.
+-- Run after the versioned least-privilege migration during isolated CI.
 DO $$
 DECLARE
   role_name text;
@@ -23,7 +23,7 @@ $$;
 
 -- Confirm removing unsafe grants does not accidentally remove existing
 -- legitimate application DML privileges. RLS still controls which rows.
-DO $
+DO $$
 DECLARE role_name text;
 BEGIN
   IF NOT has_table_privilege('authenticated','public.schools','SELECT')
