@@ -8,12 +8,16 @@ on:
       - scripts/verify-public-assets.mjs
       - scripts/verify-deployed-worker.mjs
       - tests/deployment-provenance.test.mjs
+      - public/performance.js
+      - src/worker.js
   pull_request:
     paths:
       - .github/workflows/production-audit.yml
       - scripts/verify-public-assets.mjs
       - scripts/verify-deployed-worker.mjs
       - tests/deployment-provenance.test.mjs
+      - public/performance.js
+      - src/worker.js
   # Detect independent Wrangler deploys even when no GitHub commit changes.
   schedule:
     - cron: '17,47 * * * *'
