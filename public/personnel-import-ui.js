@@ -60,7 +60,7 @@ if(form){
     refresh();
     const file=$('personnel-import-file').files?.[0],year=$('personnel-import-year');
     if(!file||!year.value){notice('اختر ملف CSV والعام الدراسي.');return;}
-    if(file.size>MAX_IMPORT_BYTES){notice('حجم الملف أكبر من الحد المسموح (1MB).');return;}
+    if(file.size>MAX_BYTES){notice('حجم الملف أكبر من الحد المسموح (1MB).');return;}
     const school=$('school-picker').value;
     if(!school){notice('اختر المدرسة أولًا.');return;}
     try{
