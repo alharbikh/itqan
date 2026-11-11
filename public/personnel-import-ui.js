@@ -1,4 +1,4 @@
-import {validatePersonnelCsv,MAX_IMPORT_BYTES} from '/personnel-import-csv.js';
+import {validatePersonnelCsv,MAX_BYTES} from '/personnel-import-csv.js';
 const $=id=>document.getElementById(id);
 const form=$('personnel-import-form');
 if(form){
