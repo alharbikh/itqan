@@ -3,17 +3,17 @@ function modalRequest(question,collect=false){
  return new Promise(resolve=>{
   const dialog=document.createElement('dialog');
   dialog.setAttribute('dir','rtl');dialog.setAttribute('aria-label',collect?'إدخال الملاحظة':'تأكيد الإجراء');
-  dialog.style.cssText='max-width:min(92vw,440px);width:100%;border:1px solid #cbd5e1;border-radius:14px;padding:24px;background:#fff;color:#172033;box-shadow:0 16px 48px #0003;font-family:Cairo,sans-serif';
+  dialog.className='itqan-confirm-dialog';
   const message=document.createElement('p');message.textContent=question;
-  message.style.cssText='margin:0 0 16px;line-height:1.9';
+  message.className='itqan-confirm-message';
   const input=collect?document.createElement('textarea'):null;
   if(input){input.rows=3;input.maxLength=1000;input.setAttribute('aria-label',question);
-   input.style.cssText='width:100%;box-sizing:border-box;margin-bottom:16px;border:1px solid #94a3b8;border-radius:8px;padding:10px;font:inherit';}
-  const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap';
+   input.className='itqan-confirm-input';}
+  const actions=document.createElement('div');actions.className='itqan-confirm-actions';
   const cancel=document.createElement('button');cancel.type='button';cancel.textContent='إلغاء';
   const accept=document.createElement('button');accept.type='button';accept.textContent='تأكيد';
-  for(const button of [cancel,accept])button.style.cssText='padding:8px 18px;border-radius:8px;border:1px solid #94a3b8;cursor:pointer;font:inherit';
-  accept.style.background='#176653';accept.style.color='#fff';actions.append(cancel,accept);
+  for(const button of [cancel,accept])button.className='itqan-confirm-button';
+  accept.classList.add('itqan-confirm-accept');actions.append(cancel,accept);
   dialog.append(message);if(input)dialog.append(input);dialog.append(actions);document.body.append(dialog);
   let settled=false;
   const finish=value=>{if(settled)return;settled=true;dialog.close();dialog.remove();resolve(value);};
