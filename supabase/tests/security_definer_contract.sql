@@ -39,3 +39,24 @@ BEGIN
   END IF;
 END;
 $itqan_definer_contract$;
+
+
+-- Structural defense against a still-valid token for a disabled account:
+-- exposed RPCs must either check active user status directly or invoke one
+-- of the centrally verified helpers that check users.status='active'.
+-- Textual checks alone do NOT establish full authorization correctness.
+DO $itqan_active_definer_contract$
+DECLARE unguarded text;
+BEGIN
+ SELECT string_agg(p.proname,', ' ORDER BY p.proname) INTO unguarded
+ FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='public' AND p.prosecdef
+  AND has_function_privilege('authenticated',p.oid,'EXECUTE')
+  AND pg_get_functiondef(p.oid) NOT ILIKE '%status=''active''%'
+  AND pg_get_functiondef(p.oid) NOT ILIKE '%has_school_permission%'
+  AND pg_get_functiondef(p.oid) NOT ILIKE '%has_system_permission%';
+ IF unguarded IS NOT NULL THEN
+   RAISE EXCEPTION 'Exposed privileged functions without active user guards: %',unguarded;
+ END IF;
+END;
+$itqan_active_definer_contract$;
