@@ -28,6 +28,16 @@ create index if not exists school_invitations_email_status
 alter table public.school_invitations enable row level security;
 revoke all on public.school_invitations from public,anon,authenticated;
 
+create table if not exists public.school_invitation_events (
+  id uuid primary key default gen_random_uuid(),
+  invitation_id uuid not null references public.school_invitations(id) on delete restrict,
+  actor_user_id uuid not null references public.users(id),
+  action text not null check(action in ('create','accept','decline','cancel')),
+  created_at timestamptz not null default now()
+);
+alter table public.school_invitation_events enable row level security;
+revoke all on public.school_invitation_events from public,anon,authenticated;
+
 create or replace function public.itqan_school_invitation_create(
   p_school uuid,p_profile uuid,p_email text,p_mode text default 'school'
 ) returns uuid
@@ -59,6 +69,8 @@ begin
  insert into public.school_invitations(school_id,personnel_profile_id,invite_email,
    account_mode,created_by) values(p_school,p_profile,v_email,p_mode,v_actor)
  returning id into v_id;
+ insert into public.school_invitation_events(invitation_id,actor_user_id,action)
+ values(v_id,v_actor,'create');
  return v_id;
 end
 $fn$;
@@ -135,6 +147,8 @@ begin
  if p_accept is not true then
    update public.school_invitations set status='declined',decided_at=now(),accepted_by=v_actor
    where id=p_invitation;
+   insert into public.school_invitation_events(invitation_id,actor_user_id,action)
+   values(p_invitation,v_actor,'decline');
    return jsonb_build_object('status','declined');
  end if;
  if v_inv.account_mode='school' and v_auth.created_at<v_inv.created_at then
@@ -177,6 +191,8 @@ begin
    v_profile.employee_id,v_profile.id,v_placement.academic_year_id);
  update public.school_invitations set status='accepted',accepted_by=v_actor,
    decided_at=now() where id=v_inv.id;
+ insert into public.school_invitation_events(invitation_id,actor_user_id,action)
+ values(v_inv.id,v_actor,'accept');
  return jsonb_build_object('status','accepted','school_id',v_inv.school_id);
 end
 $fn$;
@@ -194,7 +210,12 @@ begin
  then raise exception 'Forbidden' using errcode='42501';end if;
  update public.school_invitations set status='cancelled',decided_at=now()
  where id=p_invitation and school_id=p_school and status='pending';
- return found;
+ if found then
+   insert into public.school_invitation_events(invitation_id,actor_user_id,action)
+   values(p_invitation,v_actor,'cancel');
+   return true;
+ end if;
+ return false;
 end
 $fn$;
 revoke all on function public.itqan_school_invitation_cancel(uuid,uuid) from public,anon;
