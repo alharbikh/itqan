@@ -25,9 +25,8 @@ jobs:
           test ! -d public/data
           test ! -d public/uploads
   schema-bootstrap:
-    concurrency:
-      group: itqan-local-supabase-schema-bootstrap
-      cancel-in-progress: true
+    # Each job has its own isolated runner and disposable PostgreSQL container.
+    # Avoid cross-event cancellation when both push and PR workflows run.
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
