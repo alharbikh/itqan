@@ -1,0 +1,27 @@
+name: Read-only Itqan production asset provenance
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/production-audit.yml
+      - scripts/verify-public-assets.mjs
+      - scripts/verify-deployed-worker.mjs
+      - tests/deployment-provenance.test.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  published-public-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare public Cloudflare assets with repository bytes
+        run: node scripts/verify-public-assets.mjs
+        env:
+          ITQAN_PUBLIC_BASE_URL: https://itqan.khmobgm.workers.dev
