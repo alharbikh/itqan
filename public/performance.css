@@ -14,3 +14,17 @@
 .perf-section button:disabled{opacity:.5;cursor:not-allowed}.perf-slim{margin-top:12px}
 .perf-section[hidden],.principal-panel[hidden]{display:none!important}
 @media(max-width:700px){.perf-wrap{width:calc(100% - 20px);margin:14px auto 45px}.perf-section{padding:14px}.perf-grid{grid-template-columns:1fr}.perf-head{align-items:start}}
+
+
+/* Criteria explorer uses a keyboard-accessible four-tab detail panel. */
+.criterion-detail{border:1px solid #c9dddf;border-radius:12px;padding:14px;background:#fff;min-width:0}
+.criterion-detail h3{font-size:.94rem;margin:0 0 12px;color:#164f56}
+.criterion-tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #dce8e9;padding-bottom:10px}
+.criterion-tabs [role="tab"]{border:1px solid #c4d8da;background:#f0f7f6;color:#205a60;padding:7px 13px;border-radius:9px;font:inherit;cursor:pointer}
+.criterion-tabs [role="tab"][aria-selected="true"]{background:#075b64;color:#fff;border-color:#075b64}
+.criterion-tabs [role="tab"]:focus-visible{outline:3px solid #70c6bc;outline-offset:2px}
+.criterion-panel{padding:14px 4px 2px;line-height:1.9;overflow-wrap:anywhere}
+.criterion-panel[hidden]{display:none!important}
+.criterion-panel p{margin:0;color:#375765}
+.criterion-descriptors,.criterion-suggestions{margin:0;padding-inline-start:24px}
+.criterion-suggestions li,.criterion-descriptors li{margin-bottom:6px}
