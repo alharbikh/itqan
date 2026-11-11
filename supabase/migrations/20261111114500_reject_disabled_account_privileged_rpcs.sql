@@ -25,7 +25,7 @@ begin
  where id=p_feedback and subject_user_id=v_actor and status='published';
  if not found then raise exception 'No published feedback for employee' using errcode='22023';end if;
  return true;
-end;$function$
+end;$function$;
 
 
 
@@ -49,7 +49,7 @@ begin
  from public.school_personnel_profiles p join public.schools s on s.id=p.school_id
  join public.employees e on e.id=p.employee_id where e.user_id=v_actor;
  return v_profiles;
-end;$function$
+end;$function$;
 
 
 
@@ -74,7 +74,7 @@ begin
  into v_result from public.school_personnel_requests q
  join public.schools s on s.id=q.school_id where q.user_id=v_actor;
  return v_result;
-end;$function$
+end;$function$;
 
 
 
@@ -112,7 +112,7 @@ begin
  on conflict(performance_review_id,criterion_id) where performance_review_id is not null
  do update set score_level=excluded.score_level,evaluator_notes=excluded.evaluator_notes;
  return true;
-end;$function$
+end;$function$;
 
 
 
@@ -142,7 +142,7 @@ begin
  update public.performance_reviews set final_score_100=v_result,status='submitted',updated_at=now()
  where id=p_review;
  return v_result;
-end;$function$
+end;$function$;
 
 
 
@@ -176,7 +176,7 @@ begin
  left join public.evaluation_score_details s
    on s.performance_review_id=pr.id and s.criterion_id=c.criterion_id
  where pr.id=v_review order by c.sort_order;
-end;$function$
+end;$function$;
 
 
 -- Enforce active user state: itqan_school_exception_score
@@ -214,7 +214,7 @@ begin
  values(p_request,v_r.school_id,v_actor,'score_changed',
   jsonb_build_object('criterion_id',p_criterion,'level',p_level));
  return true;
-end;$function$
+end;$function$;
 
 
 -- Enforce active user state: itqan_school_exception_submit
@@ -249,7 +249,7 @@ begin
  insert into public.review_exception_events(request_id,school_id,actor_user_id,action,details)
  values(p_request,v_r.school_id,v_actor,'submitted',jsonb_build_object('weighted_score',v_score));
  return v_score;
-end;$function$
+end;$function$;
 
 
 -- Enforce active user state: itqan_school_request_review_exception
@@ -275,5 +275,5 @@ begin
  insert into public.review_exception_events(request_id,school_id,actor_user_id,action)
  values(v_request,v_review.school_id,v_actor,'requested');
  return v_request;
-end;$function$
+end;$function$;
 
