@@ -5,7 +5,9 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {resolve} from 'node:path';
 const base=process.env.ITQAN_PUBLIC_BASE_URL||'https://itqan.khmobgm.workers.dev';
-const files=['app.css','school.js','admin.js','performance.js','frameworks.js','link.js'];
+const files=['app.css','app.js','school.js','admin.js','performance.js','frameworks.js','link.js',
+ 'school-invitations.js','invitations.js','school-registration.js','personal.js',
+ 'personnel-import-ui.js','personnel-import-csv.js'];
 
 function sha256(bytes){return createHash('sha256').update(bytes).digest('hex')}
 
