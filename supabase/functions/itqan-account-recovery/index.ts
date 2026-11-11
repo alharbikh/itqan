@@ -99,6 +99,59 @@ async function handler(req) {
     if(!changed.ok)return json({error:'Password change rejected'},422);
     return json({ok:true});
   }
+  if(body.action==='school_create_temporary_account'){
+    // School principals may create a *new*, school-scoped login only after independent identity checks.
+    if(!uuid(body.school_id)||!uuid(body.profile_id)||!emailValid(body.email)||
+       typeof body.reason!=='string'||body.reason.trim().length<10||body.reason.length>500||
+       Object.keys(body).some(k=>!['action','school_id','profile_id','email','reason'].includes(k)))
+      return json({error:'Invalid school account request'},400);
+    const school=body.school_id,mail=body.email.trim().toLowerCase();
+    const [membership,schoolInfo,staff]=await Promise.all([
+      call('/rest/v1/school_memberships?select=id&school_id=eq.'+encodeURIComponent(school)+
+        '&user_id=eq.'+encodeURIComponent(actor)+'&access_role=eq.school_principal&status=eq.active&limit=1'),
+      call('/rest/v1/schools?select=id&status=eq.active&id=eq.'+encodeURIComponent(school)+'&limit=1'),
+      call('/rest/v1/school_personnel_profiles?select=id,full_name_snapshot&school_id=eq.'+
+        encodeURIComponent(school)+'&id=eq.'+encodeURIComponent(body.profile_id)+
+        '&status=eq.active&limit=1')
+    ]);
+    if(!membership.ok||membership.data?.length!==1||!schoolInfo.ok||
+       schoolInfo.data?.length!==1||!staff.ok||staff.data?.length!==1)
+      return json({error:'Forbidden'},403);
+    // Exception-only: limit administrative issuance to 10 per school principal per hour.
+    const since=new Date(Date.now()-60*60*1000).toISOString();
+    const recent=await call('/rest/v1/school_temporary_account_events?select=id&actor_user_id=eq.'+
+      encodeURIComponent(actor)+'&created_at=gte.'+encodeURIComponent(since)+'&limit=10');
+    if(!recent.ok)return json({error:'Audit unavailable'},503);
+    if(recent.data.length>=10)return json({error:'Too many temporary accounts'},429);
+    const password=temporaryPassword();
+    const expires_at=new Date(Date.now()+24*60*60*1000).toISOString();
+    const created=await call('/auth/v1/admin/users','POST',{
+      email:mail,password,email_confirm:true,
+      user_metadata:{full_name:staff.data[0].full_name_snapshot},
+      app_metadata:{
+        itqan_force_password_change:true,
+        itqan_temp_password_expires_at:expires_at,
+        itqan_school_account:true
+      }
+    });
+    const newUser=created.data?.user||created.data;
+    if(!created.ok||!uuid(newUser?.id))
+      return json({error:'تعذر إنشاء الحساب. تأكد أن البريد غير مستخدم سابقًا.'},
+        [400,409,422,429].includes(created.status)?created.status:502);
+    const provisioned=await call('/rest/v1/rpc/itqan_school_provision_temporary_account','POST',{
+      p_school:school,p_profile:body.profile_id,p_actor:actor,p_user:newUser.id,
+      p_email:mail,p_reason:body.reason.trim()
+    });
+    if(!provisioned.ok||provisioned.data!==true){
+      // If the DB call had a deterministic rejection, remove the unused newly-created account.
+      // For transport/5xx uncertainty, preserve it without releasing the password for reconciliation.
+      if([400,403,409,422].includes(provisioned.status))
+        await call('/auth/v1/admin/users/'+encodeURIComponent(newUser.id),'DELETE').catch(()=>null);
+      return json({error:'تعذر ربط الحساب بالملف. لم تُسلّم بيانات الدخول.'},502);
+    }
+    // Never log or persist the temporary credential; return it exactly once over HTTPS.
+    return json({ok:true,temporary_password:password,expires_at,email:mail});
+  }
   if(body.action!=='admin_recover')return json({error:'Unknown action'},400);
   const roles=await call('/rest/v1/user_roles?select=role_code&user_id=eq.'+encodeURIComponent(actor));
   if(!roles.ok||!Array.isArray(roles.data)||!roles.data.some(r=>r.role_code==='site_admin'))
