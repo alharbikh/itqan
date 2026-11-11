@@ -1159,6 +1159,34 @@ async function api(request, env, pathname) {
       json({error:result.data?.code==='42501'?'Forbidden':'Exception incomplete or invalid'},
         result.data?.code==='42501'?403:422,current.cookies);
   }
+  // #47: exceptional principal-issued independent account; Auth secret stays in Supabase Edge.
+  if(pathname==='/api/school/accounts/temporary'&&request.method==='POST'){
+    const current=await session(request,env);
+    if(!current.user)return json({error:'Unauthorized'},401,current.cookies);
+    const body=await input(request);
+    if(!body||!uuidValid(body.school_id)||!uuidValid(body.profile_id)||
+       !emailValid(body.email)||typeof body.reason!=='string'||
+       body.reason.trim().length<10||body.reason.length>500||
+       Object.keys(body).some(k=>!['school_id','profile_id','email','reason'].includes(k)))
+      return json({error:'تحقق من الموظف والبريد وسبب الطلب (10 أحرف على الأقل).'},400,current.cookies);
+    const permitted=current.user.schoolMemberships.some(m=>
+      m.school_id===body.school_id&&m.access_role==='school_principal'&&m.status==='active');
+    if(!permitted)return json({error:'Forbidden'},403,current.cookies);
+    const result=await backend(env,'/functions/v1/itqan-account-recovery','POST',{
+      action:'school_create_temporary_account',school_id:body.school_id,
+      profile_id:body.profile_id,email:body.email.trim().toLowerCase(),
+      reason:body.reason.trim()
+    },current.token);
+    if(!result.ok)return json({error:result.status===429?'تجاوزت الحد المسموح للحسابات المؤقتة.':
+      [400,403,409,422].includes(result.status)?'تعذر إنشاء الحساب. تحقق من بيانات الموظف والبريد والصلاحية.':
+      'تعذر إنشاء الحساب المؤقت. لا تسلّم أي بيانات دخول قبل التحقق.'},
+      [400,403,409,422,429].includes(result.status)?result.status:502,current.cookies);
+    if(!result.data?.ok||typeof result.data.temporary_password!=='string'||
+       !emailValid(result.data.email))
+      return json({error:'لم تكتمل عملية إنشاء الحساب. راجع سجل الإدارة.'},502,current.cookies);
+    return json({ok:true,temporary_password:result.data.temporary_password,
+      expires_at:result.data.expires_at,email:result.data.email},200,current.cookies);
+  }
   // #47: school-manager-originated invitations, with explicit recipient consent.
   if(pathname==='/api/school/invitations'||pathname==='/api/school/invitations/cancel'||
      pathname==='/api/invitations/mine'||pathname==='/api/invitations/decision'){

@@ -32,6 +32,10 @@ async function refresh(){
   staffIndex=new Map(profiles.filter(p=>p.status==='active').map(p=>[String(p.employee_number),p.id]));
   const selector=$('school-invite-profile');selector.replaceChildren(new Option('اختر ملفًا وظيفيًا معتمدًا',''));
   for(const [id,label] of profileMap)selector.add(new Option(label,id));
+  const tmp=$('school-temp-profile');if(tmp){
+    tmp.replaceChildren(new Option('اختر الملف المعتمد',''));
+    for(const [id,label] of profileMap)tmp.add(new Option(label,id));
+  }
   const list=$('school-invite-list');list.replaceChildren();
   if(!invites.length)list.append(node('p','لا توجد دعوات مسجلة.'));
   for(const item of invites){
@@ -75,6 +79,51 @@ form.addEventListener('submit',async e=>{
  finally{button.disabled=false;}
 });
 schoolPicker.addEventListener('change',()=>{school=schoolPicker.value;refresh();});
+
+const tempForm=$('school-temp-account-form'),tempMessage=$('school-temp-message');
+if(tempForm){
+ const tempOutput=$('school-temp-output'),tempPassword=$('school-temp-password');
+ const tempSay=(message,error=false)=>{tempMessage.textContent=message;tempMessage.className='alert '+(error?'error':'success');tempMessage.hidden=false;};
+ const clearTemp=()=>{tempPassword.value='';tempOutput.hidden=true;};
+ schoolPicker.addEventListener('change',clearTemp);
+ tempForm.addEventListener('submit',async e=>{
+  e.preventDefault();clearTemp();
+  const id=$('school-temp-profile').value;
+  if(!schoolPicker.value||!profileMap.has(id)){tempSay('اختر ملفًا وظيفيًا معتمدًا.',true);return;}
+  if(!await (async()=>new Promise(resolve=>{
+   const dialog=document.createElement('dialog');dialog.dir='rtl';dialog.className='itqan-confirm-dialog';
+   const p=node('p','هل تحققت من هوية صاحب الملف وتعذر إرسال الدعوة إليه؟ ستُنشأ له بيانات دخول مدرسية مستقلة مؤقتة.');
+   const buttons=node('div','');buttons.className='itqan-confirm-actions';
+   const cancel=node('button','إلغاء'),yes=node('button','تأكيد');
+   cancel.type=yes.type='button';cancel.className=yes.className='itqan-confirm-button';
+   buttons.append(cancel,yes);dialog.append(p,buttons);document.body.append(dialog);
+   let done=false;const finish=x=>{if(done)return;done=true;dialog.close();dialog.remove();resolve(x);};
+   cancel.onclick=()=>finish(false);yes.onclick=()=>finish(true);
+   dialog.addEventListener('cancel',e=>{e.preventDefault();finish(false);});
+   dialog.addEventListener('close',()=>finish(false));dialog.showModal();cancel.focus();
+  }))())return;
+  const button=tempForm.querySelector('button[type="submit"]');button.disabled=true;
+  try{
+   const result=await api('/api/school/accounts/temporary','POST',{
+    school_id:schoolPicker.value,profile_id:id,
+    email:$('school-temp-email').value.trim(),reason:$('school-temp-reason').value.trim()
+   });
+   if(!result.ok||!result.temporary_password)throw Error('تعذر استلام كلمة المرور المؤقتة.');
+   tempPassword.value=result.temporary_password;
+   tempOutput.hidden=false;
+   tempSay('أُنشئ حساب مدرسي مستقل. سلّم كلمة المرور لصاحب الحساب فقط عبر قناة آمنة، وألزمه بتغييرها في أول دخول.');
+   tempForm.reset();
+   await refresh();
+  }catch(err){tempSay(err.message||'تعذر إنشاء الحساب.',true);}
+  finally{button.disabled=false;}
+ });
+ $('school-temp-copy').addEventListener('click',async()=>{
+  if(!tempPassword.value)return;
+  try{await navigator.clipboard.writeText(tempPassword.value);tempSay('نُسخت كلمة المرور. امسحها من الحافظة بعد تسليمها بأمان.');}
+  catch{tempSay('تعذر النسخ، استخدم العرض المباشر بحذر.',true);}
+ });
+}
+
 
 const bulkFile=$('school-invite-bulk-file'),bulkPreview=$('school-invite-bulk-preview');
 const bulkCreate=$('school-invite-bulk-create'),bulkMessage=$('school-invite-bulk-message');
