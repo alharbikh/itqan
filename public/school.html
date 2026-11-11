@@ -5,7 +5,7 @@
 <meta name="theme-color" content="#075b64"><meta name="robots" content="noindex,nofollow">
 <title>مساحة المدرسة | إتقان سمارت برو</title>
 <link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/admin.css"><link rel="stylesheet" href="/school.css">
-<script src="/school.js" defer></script><script src="/personnel-admin.js" defer></script><script type="module" src="/personnel-import-ui.js"></script>
+<script src="/school.js" defer></script><script src="/personnel-admin.js" defer></script><script src="/school-invitations.js" defer></script><script type="module" src="/personnel-import-ui.js"></script>
 </head>
 <body data-view="school" class="admin-app nav-expanded">
 <header class="admin-topbar">
@@ -56,7 +56,8 @@
       <div class="admin-card" id="personnel-admin" dir="rtl">
         <div class="personnel-tabs" role="tablist" aria-label="إدارة الملفات الوظيفية">
           <button class="button" type="button" data-personnel-tab="profiles" aria-selected="true">الملفات الوظيفية</button>
-          <button class="button" type="button" data-personnel-tab="requests" aria-selected="false">طلبات الارتباط</button>
+          <button class="button" type="button" data-personnel-tab="invitations" aria-selected="false">دعوات الموظفين</button>
+          <button class="button" type="button" data-personnel-tab="requests" aria-selected="false">طلبات سابقة</button>
           <button class="button" type="button" data-personnel-tab="history" aria-selected="false">سجل الارتباطات</button>
         </div>
         <div id="personnel-message" class="alert" role="status" aria-live="polite" hidden></div>
@@ -111,6 +112,25 @@
           </div>
           <h3>العضويات المدرسية الحالية</h3>
           <div class="table-scroll"><table class="admin-table"><thead><tr><th>المستخدم</th><th>الصلاحية</th><th>العمل الحالي</th><th>حالة العضوية</th></tr></thead><tbody id="members-body"></tbody></table></div>
+        </div>
+        <div data-personnel-panel="invitations" hidden>
+          <h2>دعوة وربط موظفي المدرسة</h2>
+          <p>يبدأ مدير المدرسة الدعوة من ملف وظيفي معتمد. لا ينشئ إرسال الدعوة حساب دخول أو عضوية تلقائيًا؛ يوافق الموظف من حسابه بعد تأكيد البريد.</p>
+          <form id="school-invite-form" class="personnel-approval-form">
+            <label>الملف الوظيفي <select id="school-invite-profile" required><option value="">اختر الملف</option></select></label>
+            <label>بريد الدعوة الإلكتروني <input id="school-invite-email" type="email" autocomplete="off" required maxlength="254"></label>
+            <label>نوع الحساب
+              <select id="school-invite-mode">
+                <option value="school">حساب مدرسي مستقل — بريد لم يُستخدم لحساب شخصي سابق</option>
+                <option value="personal">ربط الحساب الشخصي الموجود بموافقة صاحبه</option>
+              </select>
+            </label>
+            <div id="school-invite-message" class="alert" role="status" aria-live="polite" hidden></div>
+            <button type="submit" class="button">إنشاء الدعوة وتجهيز بريد الإرسال</button>
+          </form>
+          <div id="school-invite-share" hidden></div>
+          <h3>الدعوات المدرسية</h3>
+          <div id="school-invite-list" class="personnel-list"></div>
         </div>
         <div data-personnel-panel="requests" hidden>
           <h2>طلبات الموظفين</h2>
