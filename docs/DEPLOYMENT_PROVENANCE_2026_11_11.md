@@ -81,3 +81,14 @@
 - [#37](https://github.com/alharbikh/itqan/issues/37) — استقلال الدورين وتعدد الأدوار.
 - [#39](https://github.com/alharbikh/itqan/issues/39) — مزامنة Worker وSupabase.
 - [#20](https://github.com/alharbikh/itqan/issues/20) و[#21](https://github.com/alharbikh/itqan/issues/21) — القبول الفعلي والبصري المؤجل.
+
+
+## سياسة الإصدارات الجديدة — مراقبة آلية ووسم SHA (قرار تطوير، دون نشر فعلي)
+
+بعد اعتماد التغييرات في [#41](https://github.com/alharbikh/itqan/issues/41):
+
+- `.github/workflows/production-audit.yml` يتضمن فحصًا **مجدولًا كل 30 دقيقة** (الدقيقة 17 و47 UTC) لستة أصول JS/CSS عامة عبر HTTPS GET فقط، بالإضافة إلى التحقق عند تغيّر أداة التدقيق وإجراء التشغيل اليدوي. يستخدم Runner GitHub `contents: read` دون أي رمز Cloudflare أو بيانات مستخدم. **جدول GitHub Actions ليس تنفيذًا فوريًا مضمونًا بعد كل نشر Wrangler**؛ قد يتأخر أو يُلغى تشغيل مجدول، لذا يلزم تشغيل الفحص مباشرةً ضمن إجراء النشر عندما يُعتمد مصدره.
+- `scripts/deploy-itqan-reviewed.mjs` هو **مدخل نشر يدوي اختياري**، ولا يفعّل CI للكتابة. يرفض أي نشر قبل `ITQAN_APPROVE_PRODUCTION_DEPLOY=yes`، ويتحقق من `main` وأن شجرة Git نظيفة، ثم يضع `--tag git-<12 chars of SHA>` و`--message "itqan main git:<full SHA>"` مع `--strict`.
+- لا يُشغّل السكربت ولا تُحدد متغيرات التفويض على أجهزة أو خدمات CI دون اعتماد صريح لخطة النشر وبيئتها. `ITQAN_DEPLOY_DRY_RUN=yes` يسرد الأمر دون تشغيله.
+- ما دام نشر `itqan build token` يجري من خارج هذا السكربت، فلا يمكن ضمان ظهور Git SHA في **كل** إصدار قديم أو جديد؛ يجب توحيد قناة النشر أو فرض سياسات استخدام الرمز قبل الإعلان عن اكتمال هذا الشرط على الإنتاج.
+- لا تخزّن `CLOUDFLARE_API_TOKEN` أو المفاتيح السرية في ملفات المشروع أو سجل GitHub Actions. لا يضيف هذا التغيير أي ترحيل Supabase.
