@@ -22,3 +22,14 @@ form{display:grid;gap:16px}label{display:grid;gap:6px;font-weight:750;font-size:
 footer{text-align:center;border-top:1px solid #dfe7eb;padding:25px;font-size:.84rem;color:#7a8c97}
 @media(max-width:760px){.top{min-height:69px;padding:10px 15px;align-items:flex-start}.brand{font-size:.98rem}.logo{height:38px;width:38px}nav{gap:3px}nav a{padding:6px;font-size:.8rem}.container{padding:20px 16px}.hero{padding:35px 0}.hero-grid{grid-template-columns:1fr;gap:25px}.hero p{font-size:1rem}.metrics{grid-template-columns:1fr}.features{grid-template-columns:1fr}.buttons>*{flex:1}.panel{padding:18px}.auth-wrap{margin:20px auto 40px}}
 @media print{body{font-family:Tajawal,sans-serif}header,footer,.button,.primary{display:none!important}.panel{border:0;box-shadow:none}}
+
+
+/* Shared confirmations — external styles preserve the restrictive Worker CSP. */
+dialog.itqan-confirm-dialog{max-width:min(92vw,440px);width:100%;border:1px solid #cbd5e1;border-radius:14px;padding:24px;background:#fff;color:#172033;box-shadow:0 16px 48px #0003;font-family:Cairo,sans-serif}
+dialog.itqan-confirm-dialog::backdrop{background:rgb(15 23 42 / 42%)}
+.itqan-confirm-message{margin:0 0 20px;line-height:1.9}
+.itqan-confirm-actions{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap}
+.itqan-confirm-button{padding:8px 18px;border-radius:8px;border:1px solid #94a3b8;cursor:pointer;font:inherit}
+.itqan-confirm-button:focus-visible{outline:3px solid #b8e7de;outline-offset:2px}
+.itqan-confirm-accept{background:#176653;color:#fff}
+.itqan-confirm-input{width:100%;box-sizing:border-box;margin-bottom:16px;border:1px solid #94a3b8;border-radius:8px;padding:10px;font:inherit}
