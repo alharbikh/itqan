@@ -86,7 +86,7 @@ async function init() {
           const result = await call('/api/login', 'POST', { email, password });
           if(result.user.mustChangePassword){location.assign('/password.html');return;}
           const next=new URLSearchParams(location.search).get('next');
-          const permitted=['/admin.html','/frameworks.html','/school.html','/performance.html','/link.html'];
+          const permitted=['/admin.html','/frameworks.html','/school.html','/performance.html','/link.html','/invitations.html'];
           window.location.assign(permitted.includes(next)?next:
             result.user.role === 'site_admin' ? '/admin.html' :
             result.user.schoolMemberships?.length ? '/school.html' : '/start.html');
