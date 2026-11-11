@@ -142,6 +142,22 @@
               <div id="school-invite-bulk-results" class="personnel-list" aria-live="polite"></div>
             </div>
           </details>
+          <details class="personnel-transfer-block" id="school-temp-account-block">
+            <summary><strong>إنشاء حساب مدرسي بكلمة مرور مؤقتة (استثناء)</strong></summary>
+            <p>للضرورة فقط عند تعذر الدعوة وبعد التحقق من هوية الموظف. يجب استخدام بريد إلكتروني غير مرتبط بحساب سابق. تُعرض كلمة المرور المؤقتة مرة واحدة وتُغيّر إلزاميًا عند أول دخول.</p>
+            <form id="school-temp-account-form" class="personnel-approval-form">
+              <label>الملف الوظيفي المعتمد <select id="school-temp-profile" required><option value="">اختر الموظف</option></select></label>
+              <label>بريد الحساب المدرسي المستقل <input id="school-temp-email" type="email" maxlength="254" autocomplete="off" required></label>
+              <label>سبب استخدام الطريقة الاستثنائية <textarea id="school-temp-reason" required minlength="10" maxlength="500" rows="2"></textarea></label>
+              <div id="school-temp-message" class="alert" role="status" aria-live="polite" hidden></div>
+              <button type="submit" class="button">إنشاء حساب مؤقت بعد التحقق من الهوية</button>
+            </form>
+            <div id="school-temp-output" hidden>
+              <label>كلمة المرور المؤقتة (تعرض مرة واحدة) <input id="school-temp-password" type="text" readonly autocomplete="off" spellcheck="false" dir="ltr"></label>
+              <button type="button" class="button" id="school-temp-copy">نسخ كلمة المرور</button>
+              <p>سلّمها للموظف بقناة خاصة آمنة. تنتهي صلاحيتها بعد 24 ساعة ويلزمه تغييرها قبل استخدام إتقان.</p>
+            </div>
+          </details>
           <div id="school-invite-share" hidden></div>
           <h3>الدعوات المدرسية</h3>
           <div id="school-invite-list" class="personnel-list"></div>
