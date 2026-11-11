@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const worker=readFileSync(new URL('../src/worker.js',import.meta.url),'utf8');
-const migration=readFileSync(new URL('../supabase/migrations/20261111172000_school_directed_invitations.sql',import.meta.url),'utf8');
+const migration=readFileSync(new URL('../supabase/migrations/20261111165452_school_directed_invitations.sql',import.meta.url),'utf8');
 const html=readFileSync(new URL('../public/school.html',import.meta.url),'utf8');
 const link=readFileSync(new URL('../public/link.html',import.meta.url),'utf8');
 const recipient=readFileSync(new URL('../public/invitations.js',import.meta.url),'utf8');
