@@ -1,6 +1,32 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
 const state={user:null,schools:[],school:null,years:[],jobs:[],criteria:[],frameworks:[],stages:[],evidence:[]};
+
+function requestConfirmation(question){
+ return new Promise(resolve=>{
+  const dialog=document.createElement('dialog');
+  dialog.setAttribute('aria-label','تأكيد الإجراء');
+  dialog.setAttribute('dir','rtl');
+  dialog.style.cssText='max-width:min(92vw,440px);width:100%;border:1px solid #cbd5e1;border-radius:14px;padding:24px;background:#fff;color:#172033;box-shadow:0 16px 48px #0003;font-family:Cairo,sans-serif';
+  const message=document.createElement('p');
+  message.textContent=question;
+  message.style.cssText='margin:0 0 20px;line-height:1.9';
+  const actions=document.createElement('div');
+  actions.style.cssText='display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap';
+  const cancel=document.createElement('button');cancel.type='button';cancel.textContent='إلغاء';
+  const accept=document.createElement('button');accept.type='button';accept.textContent='تأكيد';
+  for(const button of [cancel,accept])button.style.cssText='padding:8px 18px;border-radius:8px;border:1px solid #94a3b8;cursor:pointer;font:inherit';
+  accept.style.background='#176653';accept.style.color='#fff';
+  actions.append(cancel,accept);dialog.append(message,actions);document.body.append(dialog);
+  let settled=false;
+  const finish=value=>{if(settled)return;settled=true;dialog.close();dialog.remove();resolve(value);};
+  cancel.addEventListener('click',()=>finish(false));
+  accept.addEventListener('click',()=>finish(true));
+  dialog.addEventListener('cancel',event=>{event.preventDefault();finish(false);});
+  dialog.addEventListener('close',()=>finish(false));
+  try{dialog.showModal();cancel.focus();}catch{finish(false);}
+ });
+}
 function msg(value,type='info'){$('message').hidden=false;$('message').textContent=value;$('message').className='alert '+type;}
 async function api(path,method='GET',body){
  const res=await fetch(path,{method,credentials:'same-origin',...(body===undefined?{}:{
@@ -30,7 +56,7 @@ async function renderAttachments(evidenceId,container,schoolId=null){
   line.append(caption,download);
   if(!schoolId&&a.user_id===state.user?.id){
    const remove=document.createElement('button');remove.type='button';remove.textContent='حذف المرفق';
-   remove.onclick=async()=>{if(!confirm('سيُحذف الملف نهائيًا ولا يمكن استرجاعه. هل تؤكد؟'))return;
+   remove.onclick=async()=>{if(!await requestConfirmation('سيُحذف الملف نهائيًا ولا يمكن استرجاعه. هل تؤكد؟'))return;
     try{await api('/api/evidence/attachments/'+encodeURIComponent(a.id),'DELETE');
        msg('حُذف المرفق بنجاح','success');await refresh();}
     catch(error){msg(error.message,'error');}};
@@ -92,7 +118,7 @@ async function refresh(){
     'جوانب القوة: '+(f.strengths||'—'),'التحسين: '+(f.improvements||'—'),'الإجراءات: '+(f.development_actions||'—'));
   if(principal()&&f.reviewer_user_id===state.user.id&&f.status==='draft'){
    const publish=document.createElement('button');publish.type='button';publish.textContent='نشر التغذية الراجعة';
-   publish.onclick=async()=>{if(!confirm('سيطلع الموظف على هذه الملاحظات الوصفية. هل تؤكد؟'))return;
+   publish.onclick=async()=>{if(!await requestConfirmation('سيطلع الموظف على هذه الملاحظات الوصفية. هل تؤكد؟'))return;
     try{await api('/api/school/midyear-feedback','PATCH',{action:'publish',school_id:state.school,feedback_id:f.id});
     msg('نُشرت المراجعة الوصفية','success');await refresh();}catch(e){msg(e.message,'error');}};
    box.append(publish);
@@ -119,7 +145,7 @@ async function refresh(){
   }
   if(principal()&&r.status==='submitted'){
     const approve=document.createElement('button');approve.type='button';approve.textContent='اعتماد داخلي للتقييم';
-    approve.onclick=async()=>{if(!confirm('هذا اعتماد داخلي مساند، وليس اعتمادًا رسميًا في فارس. هل تؤكد؟'))return;
+    approve.onclick=async()=>{if(!await requestConfirmation('هذا اعتماد داخلي مساند، وليس اعتمادًا رسميًا في فارس. هل تؤكد؟'))return;
      try{await api('/api/school/review-actions','POST',{action:'approve',review_id:r.id});
        msg('تم الاعتماد الداخلي','success');await refresh();}catch(e){msg(e.message,'error');}};
     box.append(approve);
@@ -149,7 +175,7 @@ async function refresh(){
     box.append(role);
     for(const [yes,label] of [[true,'اعتماد الربط'],[false,'رفض الطلب']]){
      const btn=document.createElement('button');btn.type='button';btn.textContent=label;
-     btn.onclick=async()=>{if(!confirm('هل تريد '+label+'؟'))return;
+     btn.onclick=async()=>{if(!await requestConfirmation('هل تريد '+label+'؟'))return;
       try{await api('/api/school/link-decision','POST',{school_id:state.school,request_id:r.id,
        approve:yes,job_role:role.value,note:'قرار موثق بواسطة مدير المدرسة'});
        msg('حُفظ قرار الربط','success');await refresh();}catch(err){msg(err.message,'error');}};
@@ -177,7 +203,7 @@ async function refresh(){
    if(x.status==='pending'&&x.requested_by!==state.user.id){
     for(const [approve,label] of [[true,'إجازة لمدة 7 أيام'],[false,'رفض الطلب']]){
      const button=document.createElement('button');button.type='button';button.textContent=label;
-     button.onclick=async()=>{if(!confirm('هل تؤكد قرار الاستثناء؟'))return;
+     button.onclick=async()=>{if(!await requestConfirmation('هل تؤكد قرار الاستثناء؟'))return;
        try{await api('/api/school/review-exceptions','POST',
         {action:'decide',request_id:x.id,approve,
          expires_at:approve?new Date(Date.now()+7*86400000).toISOString():null});
@@ -284,7 +310,7 @@ bindForm('personnel-form',async()=>{
  $('personnel-created').textContent='معرف الملف الجديد لإرساله للموظف: '+data.result;
  $('personnel-form').reset();
 });
-bindForm('unlink-form',async()=>{if(!confirm('سيتم إنهاء صلاحية الموظف بهذه المدرسة، مع حفظ السجل التاريخي. هل تؤكد؟'))return;
+bindForm('unlink-form',async()=>{if(!await requestConfirmation('سيتم إنهاء صلاحية الموظف بهذه المدرسة، مع حفظ السجل التاريخي. هل تؤكد؟'))return;
  await api('/api/school/unlink','POST',{school_id:state.school,user_id:$('unlink-user').value,
  reason:$('unlink-reason').value});$('unlink-form').reset();});
 bindForm('stage-form',async()=>{if(!selectedYear())throw Error('اختر العام الدراسي أولًا');
