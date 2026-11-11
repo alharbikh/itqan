@@ -1,6 +1,32 @@
 /* Principal-only personnel management. State is never persisted in browser storage. */
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
+function modalRequest(question,collect=false){
+ return new Promise(resolve=>{
+  const dialog=document.createElement('dialog');
+  dialog.setAttribute('dir','rtl');dialog.setAttribute('aria-label',collect?'إدخال الملاحظة':'تأكيد الإجراء');
+  dialog.style.cssText='max-width:min(92vw,440px);width:100%;border:1px solid #cbd5e1;border-radius:14px;padding:24px;background:#fff;color:#172033;box-shadow:0 16px 48px #0003;font-family:Cairo,sans-serif';
+  const message=document.createElement('p');message.textContent=question;
+  message.style.cssText='margin:0 0 16px;line-height:1.9';
+  const input=collect?document.createElement('textarea'):null;
+  if(input){input.rows=3;input.maxLength=1000;input.setAttribute('aria-label',question);
+   input.style.cssText='width:100%;box-sizing:border-box;margin-bottom:16px;border:1px solid #94a3b8;border-radius:8px;padding:10px;font:inherit';}
+  const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap';
+  const cancel=document.createElement('button');cancel.type='button';cancel.textContent='إلغاء';
+  const accept=document.createElement('button');accept.type='button';accept.textContent='تأكيد';
+  for(const button of [cancel,accept])button.style.cssText='padding:8px 18px;border-radius:8px;border:1px solid #94a3b8;cursor:pointer;font:inherit';
+  accept.style.background='#176653';accept.style.color='#fff';actions.append(cancel,accept);
+  dialog.append(message);if(input)dialog.append(input);dialog.append(actions);document.body.append(dialog);
+  let settled=false;
+  const finish=value=>{if(settled)return;settled=true;dialog.close();dialog.remove();resolve(value);};
+  cancel.addEventListener('click',()=>finish(collect?null:false));
+  accept.addEventListener('click',()=>finish(collect?input.value:true));
+  dialog.addEventListener('cancel',event=>{event.preventDefault();finish(collect?null:false);});
+  dialog.addEventListener('close',()=>finish(collect?null:false));
+  try{dialog.showModal();(input||cancel).focus();}catch{finish(collect?null:false);}
+ });
+}
+
 const state={school:null,requests:[],profiles:[],years:[],jobs:[],tab:'profiles'};
 const statusNames={draft:'مسودة',pending:'بانتظار المراجعة',under_review:'قيد المراجعة',
  changes_requested:'مطلوب استكمال',approved:'معتمد',rejected:'مرفوض',cancelled:'ملغى'};
@@ -73,7 +99,7 @@ function renderRequests(){
 async function decision(r,action){
  try{
   if(action==='reveal'){
-   if(!confirm('سيتم تسجيل الكشف عن رقم الهوية في سجل التدقيق. هل تريد المتابعة؟'))return;
+   if(!await modalRequest('سيتم تسجيل الكشف عن رقم الهوية في سجل التدقيق. هل تريد المتابعة؟'))return;
    const value=await api('/api/personnel/admin','POST',
     {school_id:state.school,request_id:r.id,action:'reveal'});
    const answer=elem('p','رقم الهوية بعد التحقق من الصلاحية: '+value);
@@ -84,7 +110,7 @@ async function decision(r,action){
   }
   let payload={school_id:state.school,request_id:r.id,action};
   if(['reject','changes'].includes(action)){
-   const reason=prompt(action==='reject'?'سبب رفض الطلب:':'ما البيانات المطلوب استكمالها؟');
+   const reason=await modalRequest(action==='reject'?'سبب رفض الطلب:':'ما البيانات المطلوب استكمالها؟',true);
    if(reason===null)return;
    if(reason.trim().length<3){notice('أدخل سببًا واضحًا لا يقل عن 3 أحرف.',true);return;}
    payload.note=reason.trim();
@@ -104,7 +130,7 @@ async function decision(r,action){
    const cancel=elem('button','إلغاء','button');cancel.type='button';cancel.onclick=()=>form.remove();form.append(cancel);
    form.addEventListener('submit',async event=>{
     event.preventDefault();
-    if(!confirm('هل تحققّت من هوية الموظف وتوافق البيانات مع سجلات المدرسة؟'))return;
+    if(!await modalRequest('هل تحققّت من هوية الموظف وتوافق البيانات مع سجلات المدرسة؟'))return;
     submit.disabled=true;
     try{
      await api('/api/personnel/admin','POST',{...payload,employee_number:number.value.trim(),
@@ -114,15 +140,15 @@ async function decision(r,action){
    });
    $('personnel-requests-list').prepend(form);number.focus();return;
   }
-  if(action==='start'&&!confirm('سيُقفل تعديل الموظف للطلب عند بدء المراجعة. هل تتابع؟'))return;
-  if(action==='reject'&&!confirm('تأكيد رفض الطلب؟'))return;
+  if(action==='start'&&!await modalRequest('سيُقفل تعديل الموظف للطلب عند بدء المراجعة. هل تتابع؟'))return;
+  if(action==='reject'&&!await modalRequest('تأكيد رفض الطلب؟'))return;
   await api('/api/personnel/admin','POST',payload);
   notice('تم تنفيذ الإجراء.');await load(state.school);
  }catch(err){notice(err.message,true);}
 }
 async function operationAction(op,action,decisionValue){
  try{
-  if(!confirm(action==='execute'?'تنفيذ العملية بعد اكتمال الموافقات؟':
+  if(!await modalRequest(action==='execute'?'تنفيذ العملية بعد اكتمال الموافقات؟':
      decisionValue==='approved'?'اعتماد مشاركة الحقول المحددة؟':'رفض مشاركة البيانات؟'))return;
   const body=action==='execute'?
     {action:'execute',operation_id:op.id}:
@@ -179,7 +205,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  const direct=$('personnel-direct-form');
  if(direct)direct.addEventListener('submit',async event=>{
   event.preventDefault();
-  if(!state.school||!confirm('هل تحققت من هوية الموظف وبياناته الوظيفية قبل إنشاء الملف المعتمد؟'))return;
+  if(!state.school||!await modalRequest('هل تحققت من هوية الموظف وبياناته الوظيفية قبل إنشاء الملف المعتمد؟'))return;
   const submit=direct.querySelector('button[type=submit]');submit.disabled=true;
   try{
    await api('/api/personnel/direct','POST',{
@@ -200,7 +226,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const number=$('personnel-target-number').value.trim();
   const fields=['full_name_snapshot',
    ...[...form.querySelectorAll('input[type=checkbox]:checked:not([disabled])')].map(x=>x.value)];
-  if(!confirm('سيُرسل طلب المشاركة إلى صاحب الملف ومدير المدرسة المصدر. لن تُنقل البيانات قبل موافقتهما.'))return;
+  if(!await modalRequest('سيُرسل طلب المشاركة إلى صاحب الملف ومدير المدرسة المصدر. لن تُنقل البيانات قبل موافقتهما.'))return;
   const submit=form.querySelector('button[type=submit]');submit.disabled=true;
   try{
    await api('/api/personnel/operations','POST',{action:'start',
