@@ -134,7 +134,8 @@ async function refresh(){
  const reviewList=$('reviews-list');reviewList.replaceChildren();
  for(const r of reviews.reviews||[]){
   const box=item(reviewList,'الموظف: '+r.subject_user_id,'الحالة: '+r.status,
-    'النتيجة: '+(r.final_score_100??'لم تحتسب')+' / 100');
+    'التقدير العام: '+(r.final_rating_5==null?'لم يحتسب':r.final_rating_5+' / 5')+
+    (r.final_score_5_exact==null?'':' — المتوسط الموزون: '+Number(r.final_score_5_exact).toFixed(2)+' / 5'));
   if(principal()&&r.status==='draft'){
     const edit=document.createElement('button');edit.type='button';edit.textContent='تقدير المعايير';
     edit.onclick=()=>scoreEditor(r,box).catch(e=>msg(e.message,'error'));box.append(edit);
