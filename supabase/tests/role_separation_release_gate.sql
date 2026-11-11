@@ -1,7 +1,7 @@
 -- Post-migration release gate, read-only and safe for isolated CI or production.
 -- Must be executed only AFTER all four pending security migrations were applied.
--- If a new migration has been added after this plan, amend this release gate
--- in a reviewed commit rather than forcing an obsolete baseline into production.
+-- This is an enduring security-grant regression test: later migrations may
+-- increase the count, but must not remove the required security milestones.
 DO $role_separation_release_gate$
 DECLARE
   version_id text;
@@ -20,8 +20,8 @@ BEGIN
     END IF;
   END LOOP;
 
-  IF (SELECT count(*) FROM supabase_migrations.schema_migrations)<>45 THEN
-    RAISE EXCEPTION 'Unexpected migration count after role separation; re-check release sequence';
+  IF (SELECT count(*) FROM supabase_migrations.schema_migrations)<45 THEN
+    RAISE EXCEPTION 'Required role-separation migration baseline is incomplete';
   END IF;
 
   IF EXISTS (

@@ -17,7 +17,7 @@ values
  ('74444444-4444-4444-8444-444444444444','76666666-6666-4666-8666-666666666666','school_principal','principal','active');
 set local role authenticated;
 do $$
-declare b uuid;f uuid;criterion uuid;v_job uuid;v_evidence_id uuid;feedback_id uuid;review_id uuid;denied boolean;
+declare b uuid;f uuid;criterion uuid;v_job uuid;v_evidence_id uuid;feedback_id uuid;review_id uuid;v_standard uuid;v_second uuid;v_result numeric;denied boolean;
 begin
  perform set_config('request.jwt.claim.sub','71111111-1111-4111-8111-111111111111',true);
  b:=public.itqan_admin_stage_framework(
@@ -74,6 +74,19 @@ begin
  review_id:=public.itqan_school_create_review(
   '74444444-4444-4444-8444-444444444444',
   '73333333-3333-4333-8333-333333333333','test',f,v_job);
+ -- A normal review uses only the Ministry official weighted five-point calculation.
+ v_standard:=public.itqan_school_create_review(
+   '74444444-4444-4444-8444-444444444444',
+   '73333333-3333-4333-8333-333333333333','test-standard',f,v_job);
+ select id into v_second from public.evaluation_criteria where code='local-criterion-b';
+ perform public.itqan_school_score_criterion(v_standard,criterion,5::smallint,'Official criterion A');
+ perform public.itqan_school_score_criterion(v_standard,v_second,4::smallint,'Official criterion B');
+ v_result:=public.itqan_school_submit_review(v_standard);
+ if v_result<>4.7 then raise exception 'Normal five-point weighted result incorrect %',v_result;end if;
+ if not exists(
+   select 1 from public.performance_reviews where id=v_standard and status='submitted'
+   and final_score_5_exact=4.7 and final_rating_5=5 and final_score_100 is null
+ ) then raise exception 'Normal review stored an invalid official result';end if;
  perform set_config('request.jwt.claim.sub','73333333-3333-4333-8333-333333333333',true);
  perform public.itqan_employee_acknowledge_framework('74444444-4444-4444-8444-444444444444',f);
  perform public.itqan_employee_ack_midyear(feedback_id,'Read and understood');
@@ -129,12 +142,13 @@ begin
  perform public.itqan_school_exception_score(request_id,criterion_one,5::smallint,'Strong result');
  perform public.itqan_school_exception_score(request_id,criterion_two,4::smallint,'Above average');
  result:=public.itqan_school_exception_submit(request_id);
- if result<>94 then raise exception 'Weighted exceptional score incorrect %',result;end if;
+ if result<>4.7 then raise exception 'Official exceptional weighted mean incorrect %',result;end if;
  if not exists(select 1 from public.review_exception_requests where id=request_id
    and status='expired' and revoked_at is not null) then
   raise exception 'Exception remained active after submitting';end if;
  if not exists(select 1 from public.performance_reviews where id=review_id
-   and status='submitted' and final_score_100=94) then
+   and status='submitted' and final_score_5_exact=4.7
+   and final_rating_5=5 and final_score_100 is null) then
   raise exception 'Exceptional submitted review incorrect';end if;
 end $$;
 rollback;
