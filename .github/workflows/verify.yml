@@ -25,9 +25,8 @@ jobs:
           test ! -d public/data
           test ! -d public/uploads
   schema-bootstrap:
-    concurrency:
-      group: itqan-local-supabase-schema-bootstrap
-      cancel-in-progress: true
+    # Each job has its own isolated runner and disposable PostgreSQL container.
+    # Avoid cross-event cancellation when both push and PR workflows run.
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -40,12 +39,16 @@ jobs:
           supabase init
           supabase start
           supabase db reset --no-seed
-      - name: Validate least-privilege table grants in disposable PostgreSQL
+      - name: Verify least-privilege migration was applied by bootstrap
         run: |
           DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
           test -n "$DB_CONTAINER"
-          docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/security/candidate_revoke_excess_table_grants.sql
           docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/no_excess_table_grants.sql
+      - name: Guard privileged function execution and search path
+        run: |
+          DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"
+          test -n "$DB_CONTAINER"
+          docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/security_definer_contract.sql
       - name: Verify school creation RLS rejects an authenticated non-admin
         run: |
           DB_CONTAINER="$(docker ps --filter name=supabase_db_ --format '{{.Names}}' | head -n 1)"

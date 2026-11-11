@@ -1,5 +1,5 @@
 -- Validate that application roles cannot execute RLS-bypassing table operations.
--- Run only after candidate_revoke_excess_table_grants.sql in isolated CI.
+-- Run after the versioned least-privilege migration during isolated CI.
 DO $$
 DECLARE
   role_name text;
@@ -17,6 +17,29 @@ BEGIN
         RAISE EXCEPTION 'Role % retains % on % public tables',role_name,privilege,excess_count;
       END IF;
     END LOOP;
+  END LOOP;
+END;
+$$;
+
+-- Confirm removing unsafe grants does not accidentally remove existing
+-- legitimate application DML privileges. RLS still controls which rows.
+DO $$
+DECLARE role_name text;
+BEGIN
+  IF NOT has_table_privilege('authenticated','public.schools','SELECT')
+    OR NOT has_table_privilege('authenticated','public.school_memberships','SELECT')
+    OR NOT has_table_privilege('authenticated','public.users','SELECT') THEN
+    RAISE EXCEPTION 'Essential authenticated catalog read grant was lost';
+  END IF;
+  FOREACH role_name IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE'] LOOP
+    IF NOT has_table_privilege('authenticated','public.personal_evidence',role_name) THEN
+      RAISE EXCEPTION 'Essential personal evidence privilege % was lost',role_name;
+    END IF;
+  END LOOP;
+  FOREACH role_name IN ARRAY ARRAY['SELECT','INSERT','DELETE'] LOOP
+    IF NOT has_table_privilege('authenticated','public.personal_evidence_attachments',role_name) THEN
+      RAISE EXCEPTION 'Essential attachment privilege % was lost',role_name;
+    END IF;
   END LOOP;
 END;
 $$;
