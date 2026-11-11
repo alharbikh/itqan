@@ -302,6 +302,30 @@ async function api(request, env, pathname) {
     }
     return json({ message: 'Check your email and await school access approval.' }, 202);
   }
+  // #47: create a school and its first principal membership atomically using an audited RPC.
+  if (pathname === '/api/schools/self-register' && request.method === 'POST') {
+    const current = await session(request,env);
+    if (!current.user) return json({error:'Unauthorized'},401,current.cookies);
+    const body = await input(request);
+    const checked = validateSchool(body);
+    if (!checked.school) return json({error:checked.error,code:checked.code,field:checked.field},400,current.cookies);
+    if (!checked.school.ministry_number) return json({error:'الرقم الوزاري مطلوب لتجنب تكرار تسجيل المدرسة.',field:'ministry_number'},400,current.cookies);
+    if (current.user.schoolMemberships?.length)
+      return json({error:'لديك عضوية مدرسية نشطة بالفعل.',code:'ACTIVE_SCHOOL_EXISTS'},409,current.cookies);
+    const s=checked.school;
+    const result=await backend(env,'/rest/v1/rpc/itqan_self_register_school','POST',{
+      p_name:s.name,p_ministry_number:s.ministry_number,p_stage:s.education_stage,
+      p_gender:s.gender,p_department:s.education_department
+    },current.token);
+    if (!result.ok) {
+      const code=result.data?.code;
+      return json({error:code==='23505'?'الرقم الوزاري مسجل مسبقًا، أو لديك عضوية مدرسة نشطة.':
+        code==='42501'?'لا تملك صلاحية تنفيذ هذا الإجراء.':'تعذر إنشاء المدرسة.',
+        code:code==='23505'?'SCHOOL_ALREADY_REGISTERED':'SCHOOL_REGISTRATION_FAILED'},
+        code==='23505'?409:code==='42501'?403:422,current.cookies);
+    }
+    return json({ok:true,school_id:result.data},201,current.cookies);
+  }
   if (pathname === '/api/logout' && request.method === 'POST') {
     const cookies = readCookies(request);
     if (cookies[ACCESS_COOKIE]) {

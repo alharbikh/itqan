@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>إنشاء مدرسة | إتقان سمارت برو</title><link rel="stylesheet" href="/app.css"></head>
+<body><header><div class="top"><a class="brand" href="/index.html"><span class="logo">إ</span><span>إتقان سمارت برو</span></a><nav><a href="/start.html">البدء</a></nav></div></header>
+<main class="container"><section class="panel auth-wrap"><h1>إنشاء مدرستي</h1><p>ستنشأ المدرسة وتصبح عضويتك فيها «مدير مدرسة» فور الحفظ. لا يمكن تسجيل الرقم الوزاري نفسه مرتين.</p>
+<div id="message" class="alert" role="status" aria-live="polite" hidden></div>
+<form id="school-registration-form">
+<label>اسم المدرسة <input name="name" id="school-name" required minlength="2" maxlength="160" autocomplete="organization"></label>
+<label>الرقم الوزاري <input name="ministry_number" id="ministry-number" required inputmode="numeric" pattern="[0-9]{1,20}" maxlength="20"></label>
+<label>المرحلة التعليمية <input name="education_stage" id="school-stage" maxlength="160"></label>
+<label>فئة المدرسة <select name="gender" id="school-gender"><option value="">غير محدد</option><option value="male">بنين</option><option value="female">بنات</option><option value="mixed">مشترك</option></select></label>
+<label>الإدارة التعليمية (اختياري) <input name="education_department" id="school-department" maxlength="160"></label>
+<button type="submit" class="primary">إنشاء المدرسة وتفعيلها</button>
+</form><p class="note">بإرسال الطلب، تقر بأنك مخوّل بإدارة المدرسة والبيانات التي تُدخلها. يمكن مراجعة حالات التكرار أو إساءة الاستخدام إداريًا.</p>
+</section></main><footer>إتقان سمارت برو</footer><script src="/school-registration.js" defer></script></body></html>

@@ -81,7 +81,7 @@ async function init() {
         if (view === 'register') {
           await call('/api/register', 'POST', { name: $('name').value.trim(), email, password });
           form.reset();
-          show('تم استلام التسجيل. تحقّق من بريدك الإلكتروني وانتظر اعتماد العضوية.', 'success');
+          show('تم استلام التسجيل. بعد تأكيد بريدك يمكنك استخدام خدماتك الشخصية أو إنشاء مدرستك.', 'success');
         } else {
           const result = await call('/api/login', 'POST', { email, password });
           if(result.user.mustChangePassword){location.assign('/password.html');return;}
@@ -89,7 +89,7 @@ async function init() {
           const permitted=['/admin.html','/frameworks.html','/school.html','/performance.html','/link.html'];
           window.location.assign(permitted.includes(next)?next:
             result.user.role === 'site_admin' ? '/admin.html' :
-            result.user.schoolMemberships?.length ? '/school.html' : '/link.html');
+            result.user.schoolMemberships?.length ? '/school.html' : '/start.html');
         }
       } catch (error) {
         show(error.message || (view === 'login' ? 'تعذّر تسجيل الدخول.' :
