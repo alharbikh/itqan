@@ -32,9 +32,13 @@ BEGIN
     RAISE EXCEPTION 'Essential authenticated catalog read grant was lost';
   END IF;
   FOREACH role_name IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE'] LOOP
-    IF NOT has_table_privilege('authenticated','public.personal_evidence',role_name)
-      OR NOT has_table_privilege('authenticated','public.personal_evidence_attachments',role_name) THEN
-      RAISE EXCEPTION 'Essential evidence operation privilege % was lost',role_name;
+    IF NOT has_table_privilege('authenticated','public.personal_evidence',role_name) THEN
+      RAISE EXCEPTION 'Essential personal evidence privilege % was lost',role_name;
+    END IF;
+  END LOOP;
+  FOREACH role_name IN ARRAY ARRAY['SELECT','INSERT','DELETE'] LOOP
+    IF NOT has_table_privilege('authenticated','public.personal_evidence_attachments',role_name) THEN
+      RAISE EXCEPTION 'Essential attachment privilege % was lost',role_name;
     END IF;
   END LOOP;
 END;
