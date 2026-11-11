@@ -1,11 +1,30 @@
 <!doctype html><html lang="ar" dir="rtl"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#075b64"><title>إدارة المعايير الرسمية | إتقان سمارت برو</title>
-<link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/performance.css">
-<script src="/frameworks.js" defer></script></head><body>
-<header><div class="top"><a class="brand" href="/admin.html"><span class="logo">إ</span><span>إتقان سمارت برو</span></a>
-<nav><a href="/admin.html">مركز الإدارة</a><a href="/school.html">مساحة المدرسة</a></nav></div></header>
-<main class="perf-wrap"><div class="perf-head"><div><span class="eyebrow">مدير الموقع فقط</span>
+<link rel="stylesheet" href="/app.css"><link rel="stylesheet" href="/admin.css"><link rel="stylesheet" href="/performance.css">
+<script src="/frameworks.js" defer></script></head><body class="admin-app nav-expanded" data-view="frameworks">
+<header class="admin-topbar">
+ <div class="admin-top-right">
+  <button type="button" id="nav-toggle" class="nav-toggle" aria-label="تغيير عرض القائمة" aria-expanded="true" aria-controls="admin-sidebar">☰</button>
+  <a href="/admin.html" class="admin-identity"><span class="admin-mark" aria-hidden="true">إ</span><span class="admin-brand">إتقان سمارت برو</span></a>
+  <span class="admin-page-title">المعايير ودورة الأداء</span>
+ </div>
+ <div class="admin-top-left"><span class="admin-role-chip">مدير الموقع</span><a class="button" href="/admin.html">مركز الإدارة</a></div>
+</header>
+<div class="admin-frame">
+ <div id="admin-scrim" class="admin-scrim" hidden></div>
+ <aside id="admin-sidebar" class="admin-sidebar" aria-label="أقسام إدارة الموقع">
+  <div class="admin-sidebar-head"><strong>مساحة الإدارة</strong><small>إدارة مركزية آمنة</small></div>
+  <nav class="admin-menu" aria-label="التنقل الإداري">
+   <a class="admin-menu-item" href="/admin.html" title="لوحة المعلومات"><span class="menu-icon" aria-hidden="true">▦</span><span class="menu-label">لوحة المعلومات</span></a>
+   <a class="admin-menu-item" href="/admin.html" title="المدارس والمستخدمون"><span class="menu-icon" aria-hidden="true">⌂</span><span class="menu-label">المدارس والمستخدمون</span></a>
+   <a class="admin-menu-item is-active" href="/frameworks.html" aria-current="page" title="المعايير ودورة الأداء"><span class="menu-icon" aria-hidden="true">▣</span><span class="menu-label">المعايير ودورة الأداء</span></a>
+   <a class="admin-menu-item" href="/school.html" title="مساحة المدرسة"><span class="menu-icon" aria-hidden="true">♧</span><span class="menu-label">مساحة المدرسة</span></a>
+  </nav>
+  <div class="sidebar-footer">الإصدار التأسيسي · Cloudflare + Supabase</div>
+ </aside>
+ <main class="admin-content"><div class="perf-wrap">
+<div class="perf-head"><div><span class="eyebrow">مدير الموقع فقط</span>
 <h1>المعايير والأطر الوظيفية</h1><p>استيراد بيانات JSON المنظمة، مراجعتها وتعديلها ثم اعتمادها ونشرها في مرحلتين منفصلتين.</p></div>
 <button id="refresh" type="button">تحديث</button></div>
 <div id="message" class="alert" role="status" aria-live="polite" hidden></div>
@@ -44,4 +63,4 @@
  <div><button type="submit">حفظ حدود الفترة</button></div>
 </form>
 <div id="stages-list" class="perf-list"></div></section>
-</main><footer>تستخدم المنصة المعايير كمصدر مساند للتقييم وتحتفظ بالإصدارات التاريخية.</footer></body></html>
+</div></main></div><footer>تستخدم المنصة المعايير كمصدر مساند للتقييم وتحتفظ بالإصدارات التاريخية.</footer></body></html>
