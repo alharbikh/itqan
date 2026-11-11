@@ -453,16 +453,25 @@ async function api(request, env, pathname) {
     const id=new URL(request.url).searchParams.get('framework_id');
     if(!id||!/^[0-9a-f-]{36}$/i.test(id))return json({error:'Invalid framework'},400,current.cookies);
     const q=encodeURIComponent(id);
-    const [rows,texts,rubrics]=await Promise.all([
+    const [rows,texts,rubrics,suggestions]=await Promise.all([
       backend(env,'/rest/v1/evaluation_framework_criteria?select=framework_id,job_title_id,criterion_id,weight&framework_id=eq.'+q,'GET',undefined,current.token),
       backend(env,'/rest/v1/evaluation_criterion_interpretations?select=framework_id,job_title_id,criterion_id,title_ar,interpretation,source_page&framework_id=eq.'+q,'GET',undefined,current.token),
-      backend(env,'/rest/v1/criterion_rating_descriptors?select=framework_id,job_title_id,criterion_id,score_level,descriptor&framework_id=eq.'+q,'GET',undefined,current.token)
+      backend(env,'/rest/v1/criterion_rating_descriptors?select=framework_id,job_title_id,criterion_id,score_level,descriptor&framework_id=eq.'+q,'GET',undefined,current.token),
+      backend(env,'/rest/v1/criterion_evidence_suggestions?select=criterion_id,title_ar,description,sort_order&active=eq.true&order=sort_order.asc','GET',undefined,current.token)
     ]);
-    if(!rows.ok||!texts.ok||!rubrics.ok)return json({error:'Unable to load framework details'},502,current.cookies);
+    if(!rows.ok||!texts.ok||!rubrics.ok||!suggestions.ok)
+      return json({error:'Unable to load framework details'},502,current.cookies);
     const key=r=>r.job_title_id+':'+r.criterion_id;
     const labels=new Map((texts.data||[]).map(x=>[key(x),x]));
+    const suggestionsByCriterion=new Map();
+    for(const suggestion of suggestions.data||[]){
+      const group=suggestionsByCriterion.get(suggestion.criterion_id)||[];
+      group.push(suggestion);
+      suggestionsByCriterion.set(suggestion.criterion_id,group);
+    }
     const criteria=(rows.data||[]).map(x=>({...x,...(labels.get(key(x))||{}),
-      descriptors:(rubrics.data||[]).filter(d=>key(d)===key(x))}));
+      descriptors:(rubrics.data||[]).filter(d=>key(d)===key(x)),
+      suggestions:suggestionsByCriterion.get(x.criterion_id)||[]}));
     return json({criteria},200,current.cookies);
   }
   if(pathname==='/api/catalog' && request.method==='GET'){

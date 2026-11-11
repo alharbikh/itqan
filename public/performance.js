@@ -233,11 +233,97 @@ async function scoreEditor(review,container){
  }
  container.append(pane);
 }
+let criteriaTabsCounter=0;
+function makeCriterionTabs(criterion,sourceReference){
+ const card=document.createElement('section');
+ card.className='criterion-detail';
+ const title=document.createElement('h3');
+ title.textContent=(criterion.title_ar||'معيار دون عنوان')+' — الوزن '+criterion.weight+'%';
+ card.append(title);
+ const tabs=document.createElement('div');tabs.className='criterion-tabs';
+ tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','تفاصيل المعيار');
+ const panels=document.createElement('div');panels.className='criterion-panels';
+ const tabKey='criterion-'+(++criteriaTabsCounter);
+ const definitions=[
+  ['التفسير',()=>{
+    const p=document.createElement('p');
+    p.textContent=criterion.interpretation||'لم يُضف تفسير رسمي لهذا المعيار بعد.';
+    return p;
+  }],
+  ['سلم التقدير',()=>{
+    const list=document.createElement('ol');list.className='criterion-descriptors';
+    for(const level of (criterion.descriptors||[]).slice().sort((a,b)=>a.score_level-b.score_level)){
+      const li=document.createElement('li');
+      li.textContent='المستوى '+level.score_level+': '+level.descriptor;
+      list.append(li);
+    }
+    if(!list.children.length){
+      const empty=document.createElement('p');
+      empty.textContent='لم يرد وصف مستويات مستقل في البيانات المعتمدة لهذا المعيار.';
+      return empty;
+    }
+    return list;
+  }],
+  ['الشواهد',()=>{
+    const list=document.createElement('ul');list.className='criterion-suggestions';
+    for(const suggestion of criterion.suggestions||[]){
+      const li=document.createElement('li');
+      const title=document.createElement('strong');title.textContent=suggestion.title_ar||'شاهد مقترح';
+      li.append(title);
+      if(suggestion.description){
+        const details=document.createElement('span');details.textContent=' — '+suggestion.description;li.append(details);
+      }
+      list.append(li);
+    }
+    if(!list.children.length){
+      const empty=document.createElement('p');
+      empty.textContent='لا توجد شواهد إرشادية منشورة لهذا المعيار. الشواهد غير إلزامية إلا بمسوغ رسمي.';
+      return empty;
+    }
+    return list;
+  }],
+  ['المرجع',()=>{
+    const p=document.createElement('p');
+    p.textContent='المصدر: '+(sourceReference||'لم يُسجل مرجع للإطار')+
+      ' — الصفحة: '+(criterion.source_page??'غير محددة');
+    return p;
+  }]
+ ];
+ const buttons=[];
+ const sections=[];
+ const activate=index=>{
+   buttons.forEach((button,i)=>{
+     const selected=i===index;button.setAttribute('aria-selected',String(selected));
+     button.tabIndex=selected?0:-1;sections[i].hidden=!selected;
+   });
+ };
+ definitions.forEach(([label,content],index)=>{
+   const button=document.createElement('button');button.type='button';button.setAttribute('role','tab');
+   button.id=tabKey+'-tab-'+index;button.setAttribute('aria-controls',tabKey+'-panel-'+index);
+   button.textContent=label;tabs.append(button);buttons.push(button);
+   const section=document.createElement('section');section.id=tabKey+'-panel-'+index;
+   section.setAttribute('role','tabpanel');section.setAttribute('aria-labelledby',button.id);
+   section.className='criterion-panel';section.append(content());panels.append(section);sections.push(section);
+   button.addEventListener('click',()=>activate(index));
+   button.addEventListener('keydown',event=>{
+     const step=event.key==='ArrowLeft'?1:event.key==='ArrowRight'?-1:0;
+     if(!step&&event.key!=='Home'&&event.key!=='End')return;
+     event.preventDefault();
+     const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:
+       (index+step+buttons.length)%buttons.length;
+     activate(next);buttons[next].focus();
+   });
+ });
+ card.append(tabs,panels);activate(0);return card;
+}
 async function showCriteria(frameworkId,box){
- try{const r=await api('/api/framework-details?framework_id='+encodeURIComponent(frameworkId));
-  const panel=document.createElement('div');panel.className='perf-list';
-  for(const x of r.criteria||[]){const row=item(panel,x.title_ar+' — وزن '+x.weight+'%',x.interpretation||'لا يوجد تفسير مضاف');
-    if(x.descriptors?.length)item(row,...x.descriptors.map(d=>'المستوى '+d.score_level+': '+d.descriptor));}
+ try{
+  const r=await api('/api/framework-details?framework_id='+encodeURIComponent(frameworkId));
+  box.querySelector('.criteria-collection')?.remove();
+  const panel=document.createElement('div');panel.className='perf-list criteria-collection';
+  const reference=state.frameworks.find(x=>x.id===frameworkId)?.source_reference||'';
+  for(const criterion of r.criteria||[])panel.append(makeCriterionTabs(criterion,reference));
+  if(!panel.children.length)item(panel,'لا توجد معايير منشورة لهذا الإطار.');
   box.append(panel);
  }catch(err){msg(err.message,'error');}
 }
