@@ -2,6 +2,8 @@
 // No cookies, credentials, POST/PUT/DELETE, user data, or browser actions.
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {resolve} from 'node:path';
 const base=process.env.ITQAN_PUBLIC_BASE_URL||'https://itqan.khmobgm.workers.dev';
 const files=['app.css','school.js','admin.js','performance.js','frameworks.js','link.js'];
 
@@ -30,7 +32,7 @@ export async function verifyPublicAssets({origin=base,assets=files,fetcher=fetch
  return results;
 }
 
-if(process.argv[1]&&import.meta.url===new URL('file://'+process.argv[1]).href) {
+if(process.argv[1]&&fileURLToPath(import.meta.url)===resolve(process.argv[1])) {
  verifyPublicAssets().then(results=>{
    console.log(JSON.stringify({base,verified:results.length,assets:results},null,2));
  }).catch(err=>{console.error(err.message);process.exitCode=1;});
