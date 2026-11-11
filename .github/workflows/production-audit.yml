@@ -9,6 +9,13 @@ on:
       - scripts/verify-deployed-worker.mjs
       - tests/deployment-provenance.test.mjs
       - public/performance.js
+      - public/school-invitations.js
+      - public/invitations.js
+      - public/school-registration.js
+      - public/personal.js
+      - public/personnel-import-ui.js
+      - public/personnel-import-csv.js
+      - public/app.js
       - src/worker.js
   pull_request:
     paths:
@@ -17,6 +24,13 @@ on:
       - scripts/verify-deployed-worker.mjs
       - tests/deployment-provenance.test.mjs
       - public/performance.js
+      - public/school-invitations.js
+      - public/invitations.js
+      - public/school-registration.js
+      - public/personal.js
+      - public/personnel-import-ui.js
+      - public/personnel-import-csv.js
+      - public/app.js
       - src/worker.js
   # Detect independent Wrangler deploys even when no GitHub commit changes.
   schedule:
