@@ -71,15 +71,24 @@ function populateMemberships(){
 function populateServices(){
   const container=$('service-list');container.replaceChildren();
   const principal=maySeeMembers();
-  const labels=principal?
-    ['إدارة منسوبي المدرسة','متابعة ملفات الإنجاز','تقييم الأداء الوظيفي','إسناد الشواهد']:
-    ['ملف الإنجاز المهني','الشواهد المهنية','التقييم الذاتي','نتيجة التقييم المنشورة'];
-  for(const label of labels){
-    const card=makeText('div','', 'school-service');
-    card.append(makeText('strong',label),makeText('small','القسم قيد التجهيز — لا توجد عملية كتابة مفعلة'));
+  const available=principal?[
+    {title:'إدارة منسوبي المدرسة',description:'الملفات المعتمدة وطلبات الموظفين والنقل والنسخ',section:'members'},
+    {title:'الأداء الوظيفي والشواهد',description:'المراجعات والتقييمات والشواهد بحسب الصلاحيات',href:'/performance.html'},
+    {title:'الارتباط الوظيفي',description:'القرارات والموافقات المرتبطة بالموظف',href:'/link.html'},
+  ]:[
+    {title:'شواهدي وأدائي الوظيفي',description:'المعايير والشواهد والمراجعات المرتبطة بحسابك',href:'/performance.html'},
+    {title:'ارتباطي الوظيفي',description:'طلب الارتباط أو فكه والاطلاع على حالة الطلب',href:'/link.html'},
+  ];
+  for(const service of available){
+    const card=document.createElement(service.href?'a':'button');
+    card.className='school-service';
+    if(service.href)card.href=service.href;
+    else{card.type='button';card.addEventListener('click',()=>navigate(service.section));}
+    card.append(makeText('strong',service.title),makeText('small',service.description));
     container.append(card);
   }
 }
+
 function displaySchool(){
   const chosen=schoolById(state.selected);
   if(!chosen)return;
