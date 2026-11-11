@@ -996,7 +996,7 @@ async function api(request, env, pathname) {
     if(request.method==='GET'){
       const schoolId=new URL(request.url).searchParams.get('school_id');
       if(!schoolId||!/^[0-9a-f-]{36}$/i.test(schoolId))return json({error:'Invalid school'},400,current.cookies);
-      const r=await backend(env,'/rest/v1/performance_reviews?select=id,school_id,subject_user_id,reviewer_user_id,academic_year,framework_id,job_title_id,status,final_score_100,visible_to_employee,approved_at&school_id=eq.'+
+      const r=await backend(env,'/rest/v1/performance_reviews?select=id,school_id,subject_user_id,reviewer_user_id,academic_year,framework_id,job_title_id,status,final_score_5_exact,final_rating_5,final_score_100,visible_to_employee,approved_at&school_id=eq.'+
         encodeURIComponent(schoolId)+'&order=created_at.desc&limit=200','GET',undefined,current.token);
       return r.ok?json({reviews:r.data},200,current.cookies):
         json({error:'Unable to read school evaluations'},502,current.cookies);
